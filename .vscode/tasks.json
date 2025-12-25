@@ -4,6 +4,99 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "echo env variable",
+            "type": "shell",
+            "command": "echo $TARGET_PATH",
+            "options": {
+                "env": {
+                    "TARGET_PATH": "${command:cmake.launchTargetPath}"
+                }
+            }
+        },
+        {
+            "label": "st-util gdb server",
+            "type": "shell",
+            "command": "st-util -p 50000",
+            "options": {},
+            "problemMatcher": []
+        },
+        {
+            "label": "nsh: build",
+            "type": "shell",
+            "command": "make px4_fmu-v6c_bootloader",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "nsh: clean",
+            "type": "shell",
+            "command": "make clean",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "nsh: distclean",
+            "type": "shell",
+            "command": "make distclean",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "nsh: clean all",
+            "type": "shell",
+            "command": "make clean && make distclean",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "nsh: build + flash",
+            "dependsOn": [
+                "nsh: build",
+                "nsh: flash via openocd (stlink)"
+            ],
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "nsh: flash via openocd (stlink)",
+            "type": "shell",
+            "command": "/media/dy/disk/workspace/openocd/install/bin/openocd -f interface/stlink.cfg -f target/stm32h7x_dual_bank.cfg -c 'init' -c 'program ${command:cmake.launchTargetPath} verify reset' -c 'shutdown'",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
             "label": "build",
             "type": "shell",
             "command": "/bin/bash",
@@ -16,13 +109,16 @@
             },
             "group": {
                 "kind": "build",
-                "isDefault": true,
+                "isDefault": true
             },
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": ["relative", "${command:cmake.buildDirectory}"]
+                "fileLocation": [
+                    "relative",
+                    "${command:cmake.buildDirectory}"
+                ]
             },
-            "presentation":{
+            "presentation": {
                 "echo": false,
                 "showReuseMessage": false,
                 "clear": true,
@@ -39,9 +135,9 @@
             },
             "group": {
                 "kind": "test",
-                "isDefault": true,
+                "isDefault": true
             },
-            "presentation":{
+            "presentation": {
                 "echo": true,
                 "showReuseMessage": false,
                 "clear": false,
@@ -64,7 +160,9 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn":["px4_sitl_cleanup"]
+            "dependsOn": [
+                "px4_sitl_cleanup"
+            ]
         },
         {
             "label": "gazebo-classic build",
@@ -83,7 +181,7 @@
                 "clear": false,
                 "close": true
             },
-            "problemMatcher": [],
+            "problemMatcher": []
         },
         {
             "label": "gazebo-classic start",
@@ -122,7 +220,7 @@
                     "background": {
                         "activeOnStart": true,
                         "beginsPattern": ".",
-                        "endsPattern": ".",
+                        "endsPattern": "."
                     }
                 }
             ]
@@ -164,7 +262,7 @@
                     "background": {
                         "activeOnStart": true,
                         "beginsPattern": ".",
-                        "endsPattern": ".",
+                        "endsPattern": "."
                     }
                 }
             ]
@@ -175,7 +273,7 @@
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
-                    "IGN_GAZEBO_RESOURCE_PATH": "${workspaceFolder}/Tools/simulation/gz/models",
+                    "IGN_GAZEBO_RESOURCE_PATH": "${workspaceFolder}/Tools/simulation/gz/models"
                 }
             },
             "command": "gz sim -v 4 -r ${workspaceFolder}/Tools/simulation/gz/worlds/${input:gzWorld}.sdf",
@@ -191,7 +289,9 @@
                 "close": false
             },
             "problemMatcher": [],
-            "dependsOn":["gazebo kill"]
+            "dependsOn": [
+                "gazebo kill"
+            ]
         },
         {
             "label": "gazebo-classic kill",
@@ -208,7 +308,9 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn":["px4_sitl_cleanup"]
+            "dependsOn": [
+                "px4_sitl_cleanup"
+            ]
         },
         {
             "label": "gazebo kill",
@@ -225,9 +327,10 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn":["px4_sitl_cleanup"]
+            "dependsOn": [
+                "px4_sitl_cleanup"
+            ]
         },
-
         {
             "label": "px4_sitl_cleanup",
             "type": "shell",
@@ -243,7 +346,9 @@
                 "close": true
             },
             "problemMatcher": [],
-            "dependsOn":["px4_kill"]
+            "dependsOn": [
+                "px4_kill"
+            ]
         },
         {
             "label": "px4_kill",

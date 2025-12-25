@@ -203,6 +203,7 @@ stm32_boardinitialize(void)
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
+	syslog(LOG_INFO, "[boot] Board app initialize: 0x%08lx\r\n", (unsigned long)arg);
 #if !defined(BOOTLOADER)
 
 	/* Power on Interfaces */

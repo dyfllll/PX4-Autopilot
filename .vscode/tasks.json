@@ -75,7 +75,7 @@
         {
             "label": "nsh: build + flash",
             "dependsOn": [
-                "nsh: build",
+                "build",
                 "nsh: flash via openocd (stlink)"
             ],
             "dependsOrder": "sequence",

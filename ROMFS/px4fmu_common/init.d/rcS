@@ -1,665 +1,881 @@
-# #!/bin/sh
-# # Un comment and use set +e to ignore and set -e to enable 'exit on error control'
-# set +e
-# # Un comment the line below to help debug scripts by printing a trace of the script commands
-# #set -x
-# # PX4FMU startup script.
-# #
-# # NOTE: environment variable references:
-# #    If the dollar sign ('$') is followed by a left bracket ('{') then the
-# #    variable name is terminated with the right bracket character ('}').
-# #    Otherwise, the variable name goes to the end of the argument.
-# #
-# #
-# # NOTE: COMMENT LINES ARE REMOVED BEFORE STORED IN ROMFS.
-# #
-# #------------------------------------------------------------------------------
-
-# #
-# # Set default paramter values.
-# # Do not add intra word spaces
-# # it wastes flash
-# #
-# set R /
-# set FCONFIG /fs/microsd/etc/config.txt
-# set FEXTRAS /fs/microsd/etc/extras.txt
-# set FRC /fs/microsd/etc/rc.txt
-# set IOFW "/etc/extras/px4_io-v2_default.bin"
-# set LOGGER_ARGS ""
-# set LOGGER_BUF 8
-# set PARAM_FILE ""
-# set PARAM_BACKUP_FILE ""
-# set RC_INPUT_ARGS ""
-# set STORAGE_AVAILABLE no
-# set SDCARD_EXT_PATH /fs/microsd/ext_autostart
-# set SDCARD_FORMAT no
-# set STARTUP_TUNE 1
-# set VEHICLE_TYPE none
-
-# # Airframe parameter versioning
-# # Value set to 1 by default but can optionally be overridden in the airframe configuration startup script.
-# # Airframe maintainers can ensure a reset to the airframe defaults during an update by increasing by one.
-# # e.g. add line "set PARAM_DEFAULTS_VER 2" in your airframe file to build the first update that enfoces a reset.
-# set PARAM_DEFAULTS_VER 1
-
-# #
-# # Print full system version.
-# #
-# ver all
-
-# #
-# # Try to mount the microSD card.
-# #
-# if [ -b "/dev/mmcsd0" ]
-# then
-# 	if mount -t vfat /dev/mmcsd0 /fs/microsd
-# 	then
-# 		if [ -f "/fs/microsd/.format" ]
-# 		then
-# 			echo "INFO [init] format /dev/mmcsd0 requested (/fs/microsd/.format)"
-# 			set SDCARD_FORMAT yes
-# 			rm /fs/microsd/.format
-# 			umount /fs/microsd
-
-# 		else
-# 			set STORAGE_AVAILABLE yes
-# 		fi
-# 	fi
-
-# 	if [ $STORAGE_AVAILABLE = no -o $SDCARD_FORMAT = yes ]
-# 	then
-# 		echo "INFO [init] formatting /dev/mmcsd0"
-# 		set STARTUP_TUNE 15 # tune 15 = SD_ERROR (overridden to SD_INIT if format + mount succeeds)
-
-# 		if mkfatfs -F 32 /dev/mmcsd0
-# 		then
-# 			echo "INFO [init] card formatted"
-
-# 			if mount -t vfat /dev/mmcsd0 /fs/microsd
-# 			then
-# 				set STORAGE_AVAILABLE yes
-# 				set STARTUP_TUNE 14 # tune 14 = SD_INIT
-# 			else
-# 				echo "ERROR [init] card mount failed"
-# 			fi
-# 		else
-# 			echo "ERROR [init] format failed"
-# 		fi
-# 	fi
-# else
-# 	# Is there a device mounted for storage
-# 	if mft query -q -k MTD -s MTD_PARAMETERS -v /mnt/microsd
-# 	then
-# 		set STORAGE_AVAILABLE yes
-# 	fi
-# fi
-
-# if [ $STORAGE_AVAILABLE = yes ]
-# then
-# 	if hardfault_log check
-# 	then
-# 		set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE
-# 		if hardfault_log commit
-# 		then
-# 			hardfault_log reset
-# 		fi
-# 	fi
-
-# 	# Check for an update of the ext_autostart folder, and replace the old one with it
-# 	if [ -e /fs/microsd/ext_autostart_new ]
-# 	then
-# 		echo "Updating external autostart files"
-# 		rm -r $SDCARD_EXT_PATH
-# 		mv /fs/microsd/ext_autostart_new $SDCARD_EXT_PATH
-# 	fi
-
-# 	set PARAM_FILE /fs/microsd/params
-# 	set PARAM_BACKUP_FILE "/fs/microsd/parameters_backup.bson"
-# fi
-
-# #
-# # Look for an init script on the microSD card.
-# # Disable autostart if the script found.
-# #
-# if [ -f $FRC ]
-# then
-# 	. $FRC
-# else
-
-# 	# Load param file location from kconfig
-# 	. ${R}etc/init.d/rc.filepaths
-
-# 	# Check if /fs/mtd_params is a valid BSON file
-# 	if ! bsondump docsize /fs/mtd_caldata
-# 	then
-# 		echo "New /fs/mtd_caldata size is:"
-# 		bsondump docsize /fs/mtd_caldata
-# 	fi
-
-# 	#
-# 	# Load parameters.
-# 	#
-# 	# if the board has a storage for (factory) calibration data
-# 	if mft query -q -k MTD -s MTD_CALDATA -v /fs/mtd_caldata
-# 	then
-# 		param load /fs/mtd_caldata
-# 	fi
-
-# 	param select $PARAM_FILE
-# 	if ! param import
-# 	then
-# 		echo "ERROR [init] param import failed"
-# 		set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE
-
-# 		bsondump $PARAM_FILE
-
-# 		if [ -d "/fs/microsd" ]
-# 		then
-# 			# try to make a backup copy
-# 			cp $PARAM_FILE /fs/microsd/param_import_fail.bson
-
-# 			# try importing from backup file
-# 			if [ -f $PARAM_BACKUP_FILE ]
-# 			then
-# 				echo "[init] importing from parameter backup"
-
-# 				# dump current backup file contents for comparison
-# 				bsondump $PARAM_BACKUP_FILE
-
-# 				param import $PARAM_BACKUP_FILE
-
-# 				# overwrite invalid $PARAM_FILE with backup
-# 				cp $PARAM_BACKUP_FILE $PARAM_FILE
-# 			fi
-
-# 			param status
-
-# 			dmesg >> /fs/microsd/param_import_fail.txt &
-# 		fi
-# 	fi
-
-# 	if [ $STORAGE_AVAILABLE = yes ]
-# 	then
-# 		param select-backup $PARAM_BACKUP_FILE
-# 	fi
-
-# 	if mft query -q -k MFT -s MFT_ETHERNET -v 1
-# 	then
-# 		netman update -i eth0
-# 	fi
-
-# 	# To trigger a parameter reset during boot SYS_AUTCONFIG was set to 1 before
-# 	if param greater SYS_AUTOCONFIG 0
-# 	then
-# 		# Reset parameters except airframe, parameter version, RC calibration, sensor calibration, flight modes, total flight time, flight UUID
-# 		param reset_all SYS_AUTOSTART SYS_PARAM_VER RC* CAL_* COM_FLTMODE* LND_FLIGHT* TC_* COM_FLIGHT*
-# 	fi
-
-# 	#
-# 	# Optional board architecture defaults: rc.board_arch_defaults
-# 	#
-# 	set BOARD_ARCH_RC_DEFAULTS ${R}etc/init.d/rc.board_arch_defaults
-# 	if [ -f $BOARD_ARCH_RC_DEFAULTS ]
-# 	then
-# 		echo "Board architecture defaults: ${BOARD_ARCH_RC_DEFAULTS}"
-# 		. $BOARD_ARCH_RC_DEFAULTS
-# 	fi
-# 	unset BOARD_ARCH_RC_DEFAULTS
-
-# 	#
-# 	# Optional board defaults: rc.board_defaults
-# 	#
-# 	set BOARD_RC_DEFAULTS ${R}etc/init.d/rc.board_defaults
-# 	if [ -f $BOARD_RC_DEFAULTS ]
-# 	then
-# 		echo "Board defaults: ${BOARD_RC_DEFAULTS}"
-# 		. $BOARD_RC_DEFAULTS
-# 	fi
-# 	unset BOARD_RC_DEFAULTS
-
-# 	# Load airframe configuration based on SYS_AUTOSTART parameter
-# 	if ! param compare SYS_AUTOSTART 0
-# 	then
-# 		# rc.autostart directly run the right airframe script which sets the VEHICLE_TYPE
-# 		# Look for airframe in ROMFS
-# 		. ${R}etc/init.d/rc.autostart
-
-# 		if [ ${VEHICLE_TYPE} == none ]
-# 		then
-# 			# Use external startup file
-# 			if [ $STORAGE_AVAILABLE = yes ]
-# 			then
-# 				. ${R}etc/init.d/rc.autostart_ext
-# 			else
-# 				echo "ERROR [init] SD card not mounted - can't load external airframe"
-# 			fi
-# 		fi
-
-# 		if [ ${VEHICLE_TYPE} == none ]
-# 		then
-# 			echo "ERROR [init] No airframe file found for SYS_AUTOSTART value"
-# 			param set SYS_AUTOSTART 0
-# 			tune_control play error
-# 		fi
-# 	fi
-
-# 	# Check parameter version and reset upon airframe configuration version mismatch.
-# 	# Reboot required because "param reset_all" would reset all "param set" lines from airframe.
-# 	if ! param compare SYS_PARAM_VER ${PARAM_DEFAULTS_VER}
-# 	then
-# 		echo "Switched to different parameter version. Resetting parameters."
-# 		param set SYS_PARAM_VER ${PARAM_DEFAULTS_VER}
-# 		param set SYS_AUTOCONFIG 1
-# 		param save
-# 		reboot
-# 	fi
-
-# 	#
-# 	# Start the tone_alarm driver.
-# 	# Needs to be started after the parameters are loaded (for CBRK_BUZZER).
-# 	#
-# 	tone_alarm start
-
-# 	#
-# 	# Waypoint storage.
-# 	# REBOOTWORK this needs to start in parallel.
-# 	#
-# 	if param compare -s SYS_DM_BACKEND 1
-# 	then
-# 		dataman start -r
-# 	else
-# 		if param compare SYS_DM_BACKEND 0
-# 		then
-# 			# dataman start default
-# 			dataman start
-# 		fi
-# 	fi
-
-# 	#
-# 	# Start the socket communication send_event handler.
-# 	#
-# 	send_event start
-
-# 	#
-# 	# Start the resource load monitor.
-# 	#
-# 	load_mon start
-
-# 	#
-# 	# Start system state indicator.
-# 	#
-# 	rgbled start -X -q
-# 	rgbled_ncp5623c start -X -q
-# 	rgbled_lp5562 start -X -q
-# 	rgbled_is31fl3195 start -X -q
-
-# 	#
-# 	# Override parameters from user configuration file.
-# 	#
-# 	if [ -f $FCONFIG ]
-# 	then
-# 		echo "Custom: ${FCONFIG}"
-# 		. $FCONFIG
-# 	fi
-
-
-# 	#
-# 	# Sensors System (start before Commander so Preflight checks are properly run).
-# 	#
-# 	if param greater SYS_HITL 0
-# 	then
-# 		sensors start -h
-
-# 		# disable GPS
-# 		param set GPS_1_CONFIG 0
-
-# 		# start the simulator in hardware if needed
-# 		if param compare SYS_HITL 2
-# 		then
-# 			simulator_sih start
-# 			sensor_baro_sim start
-# 			sensor_mag_sim start
-# 			sensor_gps_sim start
-# 			sensor_agp_sim start
-# 		fi
-
-# 	else
-# 		#
-# 		# board sensors: rc.sensors
-# 		#
-# 		set BOARD_RC_SENSORS ${R}etc/init.d/rc.board_sensors
-# 		if [ -f $BOARD_RC_SENSORS ]
-# 		then
-# 			echo "Board sensors: ${BOARD_RC_SENSORS}"
-# 			. $BOARD_RC_SENSORS
-# 		fi
-# 		unset BOARD_RC_SENSORS
-
-# 		. ${R}etc/init.d/rc.sensors
-
-# 		if param compare -s BAT1_SOURCE 2
-# 		then
-# 			esc_battery start
-# 		fi
-
-# 		if ! param compare BAT1_SOURCE 1
-# 		then
-# 			battery_status start
-# 		fi
-
-# 		sensors start
-# 	fi
-
-# 	#
-# 	# state estimator selection
-# 	#
-# 	if param compare -s EKF2_EN 1
-# 	then
-# 		ekf2 start &
-# 	fi
-
-# 	if param compare -s LPE_EN 1
-# 	then
-# 		local_position_estimator start
-# 	fi
-
-# 	if param compare -s ATT_EN 1
-# 	then
-# 		attitude_estimator_q start
-# 	fi
-
-# 	#
-# 	# px4io
-# 	#
-# 	if px4io supported
-# 	then
-# 	# Check if PX4IO present and update firmware if needed.
-# 		if [ -f $IOFW ]
-# 		then
-# 			if ! px4io checkcrc ${IOFW}
-# 			then
-# 				# tune Program PX4IO
-# 				tune_control play -t 16 # tune 16 = PROG_PX4IO
-
-# 				if px4io update ${IOFW}
-# 				then
-# 					usleep 10000
-# 					tune_control stop
-# 					if px4io checkcrc ${IOFW}
-# 					then
-# 						tune_control play -t 17 # tune 17 = PROG_PX4IO_OK
-# 					else
-# 						tune_control play -t 18 # tune 18 = PROG_PX4IO_ERR
-# 					fi
-# 				else
-# 					tune_control stop
-# 				fi
-# 			fi
-
-# 			if ! px4io start
-# 			then
-# 				echo "PX4IO start failed"
-# 				set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE
-# 			fi
-# 		fi
-# 	fi
-
-# 	# Heater driver for temperature regulated IMUs.
-# 	# The heater needs to start after px4io.
-# 	if param compare -s SENS_EN_THERMAL 1
-# 	then
-# 		heater start
-# 	fi
-
-
-# 	#
-# 	# RC update (map raw RC input to calibrate manual control)
-# 	#  start before commander
-# 	#
-# 	rc_update start
-# 	manual_control start
-
-# 	# Start camera trigger, capture and PPS before pwm_out as they might access
-# 	# pwm pins
-# 	if param greater -s TRIG_MODE 0
-# 	then
-# 		camera_trigger start
-# 		camera_feedback start
-# 	fi
-# 	# PPS capture driver
-# 	if param greater -s PPS_CAP_ENABLE 0
-# 	then
-# 		pps_capture start
-# 	fi
-# 	# RPM capture driver
-# 	if param greater -s RPM_CAP_ENABLE 0
-# 	then
-# 		rpm_capture start
-# 	fi
-# 	# Camera capture driver
-# 	if param greater -s CAM_CAP_FBACK 0
-# 	then
-# 		if camera_capture start
-# 		then
-# 			camera_capture on
-# 		fi
-# 	fi
-
-# 	#
-# 	# Commander
-# 	#
-# 	if param greater SYS_HITL 0
-# 	then
-# 		commander start -h
-
-# 		if ! pwm_out_sim start -m hil
-# 		then
-# 			tune_control play error
-# 		fi
-
-# 	else
-# 		commander start
-
-# 		dshot start
-# 		pwm_out start
-# 	fi
-
-# 	#
-# 	# Configure vehicle type specific parameters.
-# 	# Note: rc.vehicle_setup is the entry point for all vehicle type specific setup.
-# 	. ${R}etc/init.d/rc.vehicle_setup
-
-# 	# Pre-takeoff continuous magnetometer calibration
-# 	if param compare -s MBE_ENABLE 1
-# 	then
-# 		mag_bias_estimator start
-# 	fi
-
-# 	#
-# 	# Optional board mavlink streams: rc.board_mavlink
-# 	#
-# 	set BOARD_RC_MAVLINK ${R}etc/init.d/rc.board_mavlink
-# 	if [ -f $BOARD_RC_MAVLINK ]
-# 	then
-# 		echo "Board mavlink: ${BOARD_RC_MAVLINK}"
-# 		. $BOARD_RC_MAVLINK
-# 	fi
-# 	unset BOARD_RC_MAVLINK
-
-# 	#
-# 	# Start UART/Serial device drivers.
-# 	# Note: rc.serial is auto-generated from Tools/serial/generate_config.py
-# 	#
-# 	. ${R}etc/init.d/rc.serial
-
-# 	# Must be started after the serial config is read
-# 	rc_input start $RC_INPUT_ARGS
-
-# 	# Manages USB interface
-# 	if param greater -s SYS_USB_AUTO -1
-# 	then
-# 		if ! cdcacm_autostart start
-# 		then
-# 			sercon
-# 			echo "Starting MAVLink on /dev/ttyACM0"
-# 			mavlink start -d /dev/ttyACM0
-# 		fi
-# 	fi
-
-# 	#
-# 	# Play the startup tune (if not disabled or there is an error)
-# 	#
-# 	param compare CBRK_BUZZER 782090
-# 	if [ "$?" != "0" -o "$STARTUP_TUNE" != "1" ]
-# 	then
-# 		tune_control play -t $STARTUP_TUNE
-# 	fi
-
-# 	#
-# 	# Start the navigator.
-# 	#
-# 	navigator start
-
-# 	#
-# 	# Start a thermal calibration if required.
-# 	#
-# 	set RC_THERMAL_CAL ${R}etc/init.d/rc.thermal_cal
-# 	if [ -f ${RC_THERMAL_CAL} ]
-# 	then
-# 		. ${RC_THERMAL_CAL}
-# 	fi
-# 	unset RC_THERMAL_CAL
-
-# 	#
-# 	# Start gimbal to control mounts such as gimbals, disabled by default.
-# 	#
-# 	if param greater -s MNT_MODE_IN -1
-# 	then
-# 		gimbal start
-# 	fi
-
-# 	# Blacksheep telemetry
-# 	if param compare -s TEL_BST_EN 1
-# 	then
-# 		bst start -X
-# 	fi
-
-# 	if param compare -s IMU_GYRO_FFT_EN 1
-# 	then
-# 		gyro_fft start
-# 	fi
-
-# 	if param compare -s IMU_GYRO_CAL_EN 1
-# 	then
-# 		gyro_calibration start
-# 	fi
-
-# 	# Check for px4flow sensor
-# 	if param compare -s SENS_EN_PX4FLOW 1
-# 	then
-# 		px4flow start -X &
-# 	fi
-
-# 	payload_deliverer start
-
-# 	if param compare -s ICE_EN 1
-# 	then
-# 		internal_combustion_engine_control start
-# 	fi
-
-# 	#
-# 	# Optional board supplied extras: rc.board_extras
-# 	#
-# 	set BOARD_RC_EXTRAS ${R}etc/init.d/rc.board_extras
-# 	if [ -f $BOARD_RC_EXTRAS ]
-# 	then
-# 		echo "Board extras: ${BOARD_RC_EXTRAS}"
-# 		. $BOARD_RC_EXTRAS
-# 	fi
-# 	unset BOARD_RC_EXTRAS
-
-# 	#
-# 	# Start any custom addons from the sdcard.
-# 	#
-# 	if [ -f $FEXTRAS ]
-# 	then
-# 		echo "Addons script: ${FEXTRAS}"
-# 		. $FEXTRAS
-# 	fi
-
-# 	#
-# 	# Start the logger.
-# 	#
-# 	set RC_LOGGING ${R}etc/init.d/rc.logging
-# 	if [ -f ${RC_LOGGING} ]
-# 	then
-# 		. ${RC_LOGGING}
-# 	fi
-# 	unset RC_LOGGING
-
-# 	#
-# 	# Set additional parameters and env variables for selected AUTOSTART.
-# 	#
-# 	if ! param compare SYS_AUTOSTART 0
-# 	then
-# 		. ${R}etc/init.d/rc.autostart.post
-# 	fi
-
-
-# 	set BOARD_BOOTLOADER_UPGRADE ${R}etc/init.d/rc.board_bootloader_upgrade
-# 	if [ -f $BOARD_BOOTLOADER_UPGRADE ]
-# 	then
-# 		sh $BOARD_BOOTLOADER_UPGRADE
-# 	fi
-# 	unset BOARD_BOOTLOADER_UPGRADE
-
-# 	#
-# 	# Check if UAVCAN is enabled, default to it for ESCs.
-# 	#
-# 	if param greater -s UAVCAN_ENABLE 0
-# 	then
-# 		# Start core UAVCAN module.
-# 		if ! uavcan start
-# 		then
-# 			tune_control play error
-# 		fi
-# 	else
-# 		if param greater -s CYPHAL_ENABLE 0
-# 		then
-# 			cyphal start
-# 		fi
-# 	fi
-# 	if param greater -s ZENOH_ENABLE 0
-# 	then
-# 		zenoh start
-# 	fi
-
-# #
-# # End of autostart.
-# #
-# fi
-
-# #
-# # Unset all script parameters to free RAM.
-# #
-# unset R
-# unset FCONFIG
-# unset FEXTRAS
-# unset FRC
-# unset IOFW
-# unset LOGGER_ARGS
-# unset LOGGER_BUF
-# unset PARAM_FILE
-# unset PARAM_BACKUP_FILE
-# unset PARAM_DEFAULTS_VER
-# unset RC_INPUT_ARGS
-# unset STORAGE_AVAILABLE
-# unset SDCARD_EXT_PATH
-# unset SDCARD_FORMAT
-# unset STARTUP_TUNE
-# unset VEHICLE_TYPE
-
-# #
-# # Boot is complete, inform MAVLink app(s) that the system is now fully up and running.
-# #
-# mavlink boot_complete
+#!/bin/sh
+# Un comment and use set +e to ignore and set -e to enable 'exit on error control'
+set +e
+# Un comment the line below to help debug scripts by printing a trace of the script commands
+#set -x
+# PX4FMU startup script.
+#
+# NOTE: environment variable references:
+#    If the dollar sign ('$') is followed by a left bracket ('{') then the
+#    variable name is terminated with the right bracket character ('}').
+#    Otherwise, the variable name goes to the end of the argument.
+#
+#
+# NOTE: COMMENT LINES ARE REMOVED BEFORE STORED IN ROMFS.
+#
+#------------------------------------------------------------------------------
+
+#
+# Set default paramter values.
+# Do not add intra word spaces
+# it wastes flash
+#
+set R /
+set FCONFIG /fs/microsd/etc/config.txt
+set FEXTRAS /fs/microsd/etc/extras.txt
+set FRC /fs/microsd/etc/rc.txt
+set IOFW "/etc/extras/px4_io-v2_default.bin"
+set LOGGER_ARGS ""
+set LOGGER_BUF 8
+set PARAM_FILE ""
+set PARAM_BACKUP_FILE ""
+set RC_INPUT_ARGS ""
+set STORAGE_AVAILABLE no
+set SDCARD_EXT_PATH /fs/microsd/ext_autostart
+set SDCARD_FORMAT no
+set STARTUP_TUNE 1
+set VEHICLE_TYPE none
+
+# Airframe parameter versioning
+# Value set to 1 by default but can optionally be overridden in the airframe configuration startup script.
+# Airframe maintainers can ensure a reset to the airframe defaults during an update by increasing by one.
+# e.g. add line "set PARAM_DEFAULTS_VER 2" in your airframe file to build the first update that enfoces a reset.
+set PARAM_DEFAULTS_VER 1
+
+#
+# Print full system version.
+#
+ver all
+
+#
+# Try to mount the microSD card.
+#
+## 判断是否存在名为 /dev/mmcsd0 的块设备，即SD卡接口是否存在/可识别
+if [ -b "/dev/mmcsd0" ]
+then
+	if mount -t vfat /dev/mmcsd0 /fs/microsd # 检查SD卡根目录是否存在 .format 文件（这是PX4约定的“强制格式化标志”）
+	then
+		if [ -f "/fs/microsd/.format" ]
+		then
+			echo "INFO [init] format /dev/mmcsd0 requested (/fs/microsd/.format)"
+			set SDCARD_FORMAT yes
+			rm /fs/microsd/.format
+			umount /fs/microsd
+
+		else
+			set STORAGE_AVAILABLE yes
+		fi
+	fi
+
+	if [ $STORAGE_AVAILABLE = no -o $SDCARD_FORMAT = yes ]  # 如果SD不可用 或 需要格式化
+	then
+		echo "INFO [init] formatting /dev/mmcsd0"
+		set STARTUP_TUNE 15 # tune 15 = SD_ERROR (overridden to SD_INIT if format + mount succeeds)
+
+		if mkfatfs -F 32 /dev/mmcsd0 # mkfatfs 创建 FAT32 文件系统
+		then
+			echo "INFO [init] card formatted"
+
+			if mount -t vfat /dev/mmcsd0 /fs/microsd # 格式化后重新挂载
+			then
+				set STORAGE_AVAILABLE yes
+				set STARTUP_TUNE 14 # tune 14 = SD_INIT # SD_INIT 音效，表示初始化成功
+			else
+				echo "ERROR [init] card mount failed"
+			fi
+		else
+			echo "ERROR [init] format failed"
+		fi
+	fi
+else
+	# Is there a device mounted for storage
+	# 没有SD卡时检查其它存储（如 MTD Flash）
+	if mft query -q -k MTD -s MTD_PARAMETERS -v /mnt/microsd
+	then
+		set STORAGE_AVAILABLE yes
+	fi
+fi
+
+if [ $STORAGE_AVAILABLE = yes ]  # 如果存储已准备好（SD卡挂载成功）
+then
+	if hardfault_log check   # 检查是否存在硬Fault错误日志
+	then
+		set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE  # 播放错误蜂鸣 tune2=ERROR_TUNE，提示用户系统曾异常
+		if hardfault_log commit # 将硬Fault日志保存到SD卡
+		then
+			hardfault_log reset # 保存成功后清空日志缓存
+		fi
+	fi
+
+	# Check for an update of the ext_autostart folder, and replace the old one with it
+	if [ -e /fs/microsd/ext_autostart_new ]   # 若检测到新自动启动目录文件夹  里面是 rc.autostart
+	then
+		echo "Updating external autostart files"
+		rm -r $SDCARD_EXT_PATH  # 删除旧的ext_autostart目录
+		mv /fs/microsd/ext_autostart_new $SDCARD_EXT_PATH # 替换为新版本
+	fi
+
+	set PARAM_FILE /fs/microsd/params  # 参数文件路径
+	set PARAM_BACKUP_FILE "/fs/microsd/parameters_backup.bson" # 参数备份文件路径
+fi
+
+#
+# Look for an init script on the microSD card.
+# Disable autostart if the script found.
+#
+#/fs/microsd/etc/rc.txt
+if [ -f $FRC ]
+then
+	. $FRC
+else
+
+	# Load param file location from kconfig
+	# rc.filepaths:  set PARAM_FILE /fs/mtd_params
+	# . 等效于 source，表示执行并导入 rc.filepaths 中定义的变量到当前脚本环境。
+	. ${R}etc/init.d/rc.filepaths
+
+	# Check if /fs/mtd_params is a valid BSON file 用于解析 BSON 文件
+	# bsondump 是 PX4 内置工具，用于解析 BSON 文件（PX4 参数文件格式）。
+	# ! bsondump docsize /fs/mtd_caldata → 如果解析失败
+	# 说明可能是新板子、内容为空、或Flash未格式化
+	# 打印文件大小用于调试
+	# 检查 /fs/mtd_caldata 是否是合法BSON文件，不合法则提示并显示文件大小。
+	if ! bsondump docsize /fs/mtd_caldata
+	then
+		echo "New /fs/mtd_caldata size is:"
+		bsondump docsize /fs/mtd_caldata
+	fi
+
+	#
+	# Load parameters.
+	# mft query 查询板载 MTD 分区信息：
+	# MTD_CALDATA 表示工厂校准数据分区，如加速度计、陀螺仪、磁罗盘、气压计校准常数等。
+	# 如果查询成功（说明存在且已挂载）
+	# → 运行 param load /fs/mtd_caldata
+	# if the board has a storage for (factory) calibration data
+	if mft query -q -k MTD -s MTD_CALDATA -v /fs/mtd_caldata
+	then
+		param load /fs/mtd_caldata
+	fi
+
+
+	# 选择当前参数存储位置，通常为：
+	# /fs/microsd/params（SD卡）
+	# /fs/mtd_params（板载Flash）
+	param select $PARAM_FILE
+	if ! param import #读取参数文件失败 处理机制
+	then
+		# 把损坏的参数文件dump出来供调试
+		# 日志常用于分析崩溃、存储损坏情况
+		echo "ERROR [init] param import failed"
+		set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE
+
+		bsondump $PARAM_FILE
+
+		# 若有SD卡，可备份损坏文件
+		# 方便用户之后手动分析恢复
+		if [ -d "/fs/microsd" ]
+		then
+			# try to make a backup copy
+			cp $PARAM_FILE /fs/microsd/param_import_fail.bson
+
+			# try importing from backup file
+			# 如果存在备份文件 parameters_backup.bson：
+			# dump内容显示给用户 → 便于比较
+			# param import 尝试导入备份参数
+			# 用备份覆盖损坏的 $PARAM_FILE 修复系统
+			if [ -f $PARAM_BACKUP_FILE ]
+			then
+				echo "[init] importing from parameter backup"
+
+				# dump current backup file contents for comparison
+				bsondump $PARAM_BACKUP_FILE
+
+				param import $PARAM_BACKUP_FILE
+
+				# overwrite invalid $PARAM_FILE with backup
+				cp $PARAM_BACKUP_FILE $PARAM_FILE
+			fi
+
+			# 打印当前参数使用情况（调试信息）：
+			# 参数总数
+			# 不同 storage空间占用
+			# 是否dirty待保存
+			param status
+
+			dmesg >> /fs/microsd/param_import_fail.txt &
+		fi
+	fi
+
+	# 当存储可用（SD卡或MTD正常）时
+	# 设置参数备份位置为 $PARAM_BACKUP_FILE（一般是 /fs/microsd/parameters_backup.bson）
+	# 后面 param save 时会同时写入备份文件
+	# 防止参数损坏时有可恢复文件
+	# 这和前面 param import失败时回退机制联动，构成PX4参数容错体系
+	if [ $STORAGE_AVAILABLE = yes ]
+	then
+		param select-backup $PARAM_BACKUP_FILE
+	fi
+
+	# 判断是否支持以太网并配置网络
+	# mft query ... MFT_ETHERNET：检查硬件功能表是否启用以太网
+	# 若支持，则执行：
+	if mft query -q -k MFT -s MFT_ETHERNET -v 1
+	then
+		netman update -i eth0
+	fi
+
+	# 如果 SYS_AUTOCONFIG > 0（通常是SD卡内创建 .autoconfig 或用户设置触发）
+	# 执行 param reset_all 但保留重要校准和配置项目：
+	# SYS_AUTOSTART	机型选择、混控配置
+	# SYS_PARAM_VER	参数版本号（用于兼容判断）
+	# RC*	遥控校准数据
+	# CAL_*	IMU、磁力计、气压计校准
+	# COM_FLTMODE*	飞行模式
+	# LND_FLIGHT*	降落逻辑相关
+	# TC_*	温补参数
+	# COM_FLIGHT*	飞控核心飞行配置
+	# To trigger a parameter reset during boot SYS_AUTCONFIG was set to 1 before
+	if param greater SYS_AUTOCONFIG 0
+	then
+		# Reset parameters except airframe, parameter version, RC calibration, sensor calibration, flight modes, total flight time, flight UUID
+		param reset_all SYS_AUTOSTART SYS_PARAM_VER RC* CAL_* COM_FLTMODE* LND_FLIGHT* TC_* COM_FLIGHT*
+	fi
+
+	#
+	# Optional board architecture defaults: rc.board_arch_defaults
+	# 加载硬件架构级默认配置
+	# 与CPU架构绑定的设置（如飞控板类型、总线、时钟、驱动默认值等）
+	# 可选，有才执行
+	set BOARD_ARCH_RC_DEFAULTS ${R}etc/init.d/rc.board_arch_defaults
+	if [ -f $BOARD_ARCH_RC_DEFAULTS ]
+	then
+		echo "Board architecture defaults: ${BOARD_ARCH_RC_DEFAULTS}"
+		. $BOARD_ARCH_RC_DEFAULTS
+	fi
+	unset BOARD_ARCH_RC_DEFAULTS
+
+	#
+	# Optional board defaults: rc.board_defaults
+	# 加载板级默认配置
+	# 区别于上一个：
+	# rc.board_arch_defaults 更底层，与架构（FMUv2，v5x等）绑定  偏硬件驱动相关
+	# rc.board_defaults 更具体，与具体飞控板（Pixhawk4，CUAV V5等）绑定  偏应用配置相关
+	set BOARD_RC_DEFAULTS ${R}etc/init.d/rc.board_defaults
+	if [ -f $BOARD_RC_DEFAULTS ]
+	then
+		echo "Board defaults: ${BOARD_RC_DEFAULTS}"
+		. $BOARD_RC_DEFAULTS
+	fi
+	unset BOARD_RC_DEFAULTS
+
+
+	#读取机型配置
+	# Load airframe configuration based on SYS_AUTOSTART parameter
+	# 判断是否设置了机型 ID（Airframe编号）
+	# SYS_AUTOSTART = 0 → 未设置机型
+	if ! param compare SYS_AUTOSTART 0
+	then
+		# rc.autostart directly run the right airframe script which sets the VEHICLE_TYPE
+		# Look for airframe in ROMFS
+		# 运行 rc.autostart，根据 SYS_AUTOSTART 自动选择对应机型脚本
+		# 该脚本会：
+		# 搜索 /etc/init.d/airframes/ 内机型配置文件
+		# 加载对应混控、传感器配置、控制器参数
+		# 设置 VEHICLE_TYPE = multicopter / plane / rover ...
+		# v6c set AIRFRAME 18001_TF-B1
+		# /etc/init.d/airframes/18001_TF-B1
+		. ${R}etc/init.d/rc.autostart
+
+
+		# 如果内置ROMFS未找到机型 → 允许从SD卡加载外部机型脚本
+		# 内部 etc/init.d/airframes/* PX4官方机型配置
+		# 外部 ext_autostart 用户/厂商定制机型，无需修改固件
+		if [ ${VEHICLE_TYPE} == none ]
+		then
+			# Use external startup file
+			if [ $STORAGE_AVAILABLE = yes ]
+			then
+				. ${R}etc/init.d/rc.autostart_ext
+			else
+				echo "ERROR [init] SD card not mounted - can't load external airframe"
+			fi
+		fi
+
+		# 如果仍然未找到机型配置，说明 SYS_AUTOSTART 设置错误
+		# 提示错误，重置 SYS_AUTOSTART = 0
+		# 播放错误提示音
+		if [ ${VEHICLE_TYPE} == none ]
+		then
+			echo "ERROR [init] No airframe file found for SYS_AUTOSTART value"
+			param set SYS_AUTOSTART 0
+			tune_control play error
+		fi
+	fi
+
+	# Check parameter version and reset upon airframe configuration version mismatch.
+	# Reboot required because "param reset_all" would reset all "param set" lines from airframe.
+	# 比较当前参数版本 SYS_PARAM_VER 与机型脚本中定义的 PARAM_DEFAULTS_VER
+	# 若不匹配，说明机型参数有更新
+	# → 执行 param reset_all 重置参数为机型默认值
+	# → 设置 SYS_PARAM_VER 为最新版本号
+	# → 设置 SYS_AUTOCONFIG 以便下次启动时不再重置参数
+	# → 保存参数并重启
+	# 这样做是因为 param reset_all 会重置所有参数到机型默认值
+	# 需要重启后才能确保所有模块都使用最新参数
+	if ! param compare SYS_PARAM_VER ${PARAM_DEFAULTS_VER}
+	then
+		echo "Switched to different parameter version. Resetting parameters."
+		param set SYS_PARAM_VER ${PARAM_DEFAULTS_VER}
+		param set SYS_AUTOCONFIG 1
+		param save
+		reboot
+	fi
+
+	#
+	# Start the tone_alarm driver.
+	# Needs to be started after the parameters are loaded (for CBRK_BUZZER).
+	# 启动蜂鸣器驱动
+	# 需要在参数加载后启动，以便读取 CBRK_BUZZER 参数
+	#
+	tone_alarm start
+
+	#
+	# Waypoint storage.
+	# REBOOTWORK this needs to start in parallel.
+	# 航点存储模块
+	# REBOOTWORK 这需要并行启动。
+	# dataman start -r ：以只读模式启动
+	# 如果 SYS_DM_BACKEND = 1（表示使用只读存储后端，如只读Flash）
+	# → 以只读模式启动 dataman
+	# 否则如果 SYS_DM_BACKEND = 0（表示使用读写存储后端，如SD卡）
+	# → 以默认读写模式启动 dataman
+	if param compare -s SYS_DM_BACKEND 1
+	then
+		dataman start -r
+	else
+		if param compare SYS_DM_BACKEND 0
+		then
+			# dataman start default
+			dataman start
+		fi
+	fi
+
+	#
+	# Start the socket communication send_event handler.
+	# 启动 socket 通信事件处理器 send_event
+	send_event start
+
+	#
+	# Start the resource load monitor.
+	# 资源负载监控模块
+	# Starts CPU/ram load monitoring service.
+	load_mon start
+
+	#
+	# Start system state indicator.
+	# 系统状态指示灯驱动
+	rgbled start -X -q
+	rgbled_ncp5623c start -X -q
+	rgbled_lp5562 start -X -q
+	rgbled_is31fl3195 start -X -q
+
+	#
+	# Override parameters from user configuration file. /fs/microsd/etc/config.txt
+	# 加载用户自定义配置文件
+	# 用于覆盖默认参数设置
+	# 位置：/fs/microsd/etc/config.txt
+	# 作用：用户可在此文件中设置参数覆盖默认值
+	#
+	if [ -f $FCONFIG ]
+	then
+		echo "Custom: ${FCONFIG}"
+		. $FCONFIG
+	fi
+
+
+	#
+	# Sensors System (start before Commander so Preflight checks are properly run).
+	# 当 SYS_HITL > 0 进入仿真模式 (HITL/SITL in hardware) 否则进入真实平台传感器启动流程
+	#
+	if param greater SYS_HITL 0
+	then
+		sensors start -h
+
+		# disable GPS 禁用真实 GPS，因为仿真会注入虚拟GPS数据
+		param set GPS_1_CONFIG 0
+
+		# start the simulator in hardware if needed
+		# simulator_sih		简化动力学仿真(SIH=Simple Inertial Helicopter model)
+		# sensor_baro_sim	仿真气压计
+		# sensor_mag_sim	仿真磁罗盘
+		# sensor_gps_sim	仿真GPS
+		# sensor_agp_sim	仿真内置加速度和陀螺仪等IMU
+		if param compare SYS_HITL 2
+		then
+			simulator_sih start
+			sensor_baro_sim start
+			sensor_mag_sim start
+			sensor_gps_sim start
+			sensor_agp_sim start
+		fi
+
+	else
+		# 如果不是HITL → 启动真实传感器系统
+		#
+		# board sensors: rc.sensors
+		# 根据不同硬件平台加载特定传感器驱动，如 PX4FMU, Holybro, CUAV 主板等
+		# rc.board_sensors 里通常包含 IMU、磁力计、气压计驱动启动
+		set BOARD_RC_SENSORS ${R}etc/init.d/rc.board_sensors
+		if [ -f $BOARD_RC_SENSORS ]
+		then
+			echo "Board sensors: ${BOARD_RC_SENSORS}"
+			. $BOARD_RC_SENSORS
+		fi
+		unset BOARD_RC_SENSORS
+
+		# 加载通用传感器启动脚本
+		# 包含IMU、GPS、气压计、磁罗盘、距离传感器等设备初始化逻辑 配置开关
+		. ${R}etc/init.d/rc.sensors
+
+
+		# 电池检测处理 BAT1_SOURCE值
+		# 1	无电池	不启动 battery_status
+		# 2	ESC估算电压	启动 esc_battery
+		# 其他	真实电源模块(Power Module)	启动 battery_status
+		if param compare -s BAT1_SOURCE 2
+		then
+			esc_battery start
+		fi
+
+		if ! param compare BAT1_SOURCE 1
+		then
+			battery_status start
+		fi
+
+		# 最后正式启动传感器管道，PX4会开始订阅各传感器并融合数据（EKF使用）
+		sensors start
+	fi
+
+	#
+	# state estimator selection
+	# 状态估计器选择（State Estimator）
+
+	# EKF2（当前主流位置/姿态融合）
+	# EKF2_EN=1 → 启动 ekf2
+	# 使用IMU、GPS、气压计、磁罗盘数据融合
+	# 后台运行 & 代表异步启动，不阻塞脚本
+	if param compare -s EKF2_EN 1
+	then
+		ekf2 start &
+	fi
+
+	# LPE（Local Position Estimator，本地定位估计器）
+	# 较早方案，一般用于室内/无GPS情况
+	# 已逐渐被 EKF2 取代，只在旧机型还能看到
+	if param compare -s LPE_EN 1
+	then
+		local_position_estimator start
+	fi
+
+	# Attitude Estimator Q（四元数姿态估计器）
+	# 仅做姿态估计，不进行位置融合
+	# 适合无定位需求的机体，如小型飞控或特殊系统
+	if param compare -s ATT_EN 1
+	then
+		attitude_estimator_q start
+	fi
+
+	#
+	# px4io
+	# PX4IO 驱动与固件更新逻辑
+	# PX4IO 是负责 PWM输出/接口管理的协处理器，例如 Pixhawk FMU + IO板结构。
+	# 脚本检查是否支持 IO，然后判断是否需要固件更新：
+	if px4io supported
+	then
+	# Check if PX4IO present and update firmware if needed.
+	# 检查IO固件文件是否存在，以及CRC是否匹配
+	# 若不匹配 → 需要更新
+		if [ -f $IOFW ]
+		then
+			if ! px4io checkcrc ${IOFW}
+			then
+				# tune Program PX4IO 执行升级动作，同时播放提示音
+				tune_control play -t 16 # tune 16 = PROG_PX4IO # 音效：准备升级PX4IO
+
+				if px4io update ${IOFW}
+				then
+					usleep 10000
+					tune_control stop
+					if px4io checkcrc ${IOFW} # 升级后再次验证CRC，确保固件无损
+					then
+						tune_control play -t 17 # tune 17 = PROG_PX4IO_OK
+					else
+						tune_control play -t 18 # tune 18 = PROG_PX4IO_ERR
+					fi
+				else
+					tune_control stop
+				fi
+			fi
+
+			if ! px4io start
+			then
+				echo "PX4IO start failed"
+				set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE
+			fi
+		fi
+	fi
+
+	# Heater driver for temperature regulated IMUs.
+	# The heater needs to start after px4io.
+	# IMU控温加热模块启动
+	# PX4某些IMU自带加热线圈，可升温到稳定工作温度
+	# 降噪滤振，提高IMU稳定性
+	# 主要用于工业机型或寒冷环境飞行
+	# SENS_EN_THERMAL=1 才启用加热驱动
+	if param compare -s SENS_EN_THERMAL 1
+	then
+		heater start
+	fi
+
+
+	#
+	# RC update (map raw RC input to calibrate manual control)
+	#  start before commander
+	# RC 相关模块启动（用于遥控输入 → 控制指令）
+	# rc_update 读取遥控器接收数据(SBUS/DSMX/CRSF…)并映射到通道
+	# manual_control 把遥控通道映射成 roll/pitch/yaw/throttle 等控制量供 Commander 使用
+	rc_update start
+	manual_control start
+
+	# Start camera trigger, capture and PPS before pwm_out as they might access
+	# pwm pins 相机/捕获/时间同步功能启动
+	# TRIG_MODE > 0	启用相机触发模块
+	# camera_trigger	输出PWM/信号触发相机拍照
+	# camera_feedback	接收相机回传脉冲用于时间戳对齐
+	# 用于航测无人机常见功能。
+	if param greater -s TRIG_MODE 0
+	then
+		camera_trigger start
+		camera_feedback start
+	fi
+
+
+	# PPS capture driver PPS 时间同步
+	# PPS = Pulse Per Second（通常来自RTK GNSS）
+	# 用于高精度时钟同步（例如定位融合、相机曝光对齐）
+	if param greater -s PPS_CAP_ENABLE 0
+	then
+		pps_capture start
+	fi
+
+
+	# RPM capture driver RPM 速度捕获 读取发动机/电机转速捕获信号（固定翼/油机常见）
+	if param greater -s RPM_CAP_ENABLE 0
+	then
+		rpm_capture start
+	fi
+
+
+	# Camera capture driver 用于相机快门信号回读（与时间戳同步更精准）
+	if param greater -s CAM_CAP_FBACK 0
+	then
+		if camera_capture start
+		then
+			camera_capture on
+		fi
+	fi
+
+	#
+	# Commander
+	# Commander (飞控核心状态机) 启动
+	# Commander 是飞控“大脑”，负责：
+	# 飞行模式切换
+	# 起飞/降落逻辑
+	# 失控保护 + failsafe
+	# 解锁/加锁
+	# 电池、RC、GPS等健康监控
+	if param greater SYS_HITL 0 # HITL（Hardware In The Loop 仿真）
+	then
+		commander start -h
+
+		if ! pwm_out_sim start -m hil
+		then
+			tune_control play error
+		fi
+
+	else
+		commander start # 启动飞控核心模块 Commander
+
+		dshot start # DShot 电调协议驱动
+		pwm_out start # PWM 输出驱动
+	fi
+
+	#
+	# Configure vehicle type specific parameters.
+	# Note: rc.vehicle_setup is the entry point for all vehicle type specific setup.
+	# rc.vehicle_setup 是 所有机型特定配置的统一入口，根据 SYS_AUTOSTART 加载对应的 airframe 设置：
+	# 多旋翼MC	混控矩阵、PWM输出数目、EKF参数、起飞逻辑
+	# 固定翼 FW	控制面输出映射、空速、TECS参数
+	# VTOL	同时加载 MC+FW 参数，外加转换逻辑
+	# ROVER/BOAT	差速驱动/转向配置
+	# 自定义	可扩展脚本加载硬件or参数
+	. ${R}etc/init.d/rc.vehicle_setup
+
+	# Pre-takeoff continuous magnetometer calibration
+	# 磁力计运行中校准
+	# MBE_ENABLE=1	启用飞行前实时磁偏估计器
+	# mag_bias_estimator	动态估计磁偏误差，减少磁干扰影响，提高航向精度
+	# 适合环境磁干扰较大的平台（VTOL、工业无人机常用）
+	# 正常飞行中会持续优化磁偏，不一定需要手动校准。
+	if param compare -s MBE_ENABLE 1
+	then
+		mag_bias_estimator start
+	fi
+
+	#
+	# Optional board mavlink streams: rc.board_mavlink
+	# 可选的板级 MAVLink 设置
+	# 允许不同硬件板支持 自定义 MAVLink 输出/波特率/端口
+	# 工厂生产线/特定飞控型号可在此定制
+	# 如果文件不存在，系统使用 默认 MAVLink 配置。
+	set BOARD_RC_MAVLINK ${R}etc/init.d/rc.board_mavlink
+	if [ -f $BOARD_RC_MAVLINK ]
+	then
+		echo "Board mavlink: ${BOARD_RC_MAVLINK}"
+		. $BOARD_RC_MAVLINK
+	fi
+	unset BOARD_RC_MAVLINK
+
+	#
+	# Start UART/Serial device drivers.
+	# Note: rc.serial is auto-generated from Tools/serial/generate_config.py
+	# 串口设备驱动初始化
+	# rc.serial 是 自动生成的串口配置文件（从 Tools/serial/generate_config.py 生成）
+	# 所有串口设备驱动从此处启动。
+	. ${R}etc/init.d/rc.serial
+
+	# Must be started after the serial config is read 遥控输入启动
+	# 读取串口配置后启动  遥控输入驱动
+	# 由于遥控器数据可能来自 UART 串口，所以要在 rc.serial 后启动
+	# $RC_INPUT_ARGS 包含协议参数（SBUS/CRSF/DSM 等自动识别）
+	rc_input start $RC_INPUT_ARGS
+
+	# Manages USB interface
+	# USB 接口与 MAVLink 自动启动 电脑识别为虚拟串口
+	# CDC ACM	把飞控识别为 USB 虚拟串口（/dev/ttyACM0）
+	# SYS_USB_AUTO≥0	允许 USB 自动模式
+	# cdcacm_autostart start	自动根据USB连接状态启动
+	# 失败时 fallback →	手动配置串口+自动启动MAVLink
+	# 飞控插USB后 → 电脑识别为虚拟串口 → 自动输出 MAVLink → QGC可直接连机
+	if param greater -s SYS_USB_AUTO -1
+	then
+		if ! cdcacm_autostart start
+		then
+			sercon
+			echo "Starting MAVLink on /dev/ttyACM0"
+			mavlink start -d /dev/ttyACM0
+		fi
+	fi
+
+	#
+	# Play the startup tune (if not disabled or there is an error)
+	# 播放启动提示音（启动成功/错误提示）
+	param compare CBRK_BUZZER 782090
+	if [ "$?" != "0" -o "$STARTUP_TUNE" != "1" ]
+	then
+		tune_control play -t $STARTUP_TUNE
+	fi
+
+	#
+	# Start the navigator.
+	# 启动 Navigator 导航任务模块
+	# 航点任务（Mission）
+	# RTL（返航）逻辑
+	# 导航控制模式 Position/Auto/Follow etc
+	# 地理围栏、避障接口
+	# 任务状态机与 Commander 联动
+	# 没有它 -> 无法执行自动任务飞行。
+	navigator start
+
+	#
+	# Start a thermal calibration if required.
+	# 温度校准脚本（可选）
+	# 若板卡支持温度标定，则执行 rc.thermal_cal
+	# 主要做 IMU 在不同温度下的偏移补偿建模
+	# 使飞控在寒冷/高温环境下依旧稳定
+	set RC_THERMAL_CAL ${R}etc/init.d/rc.thermal_cal
+	if [ -f ${RC_THERMAL_CAL} ]
+	then
+		. ${RC_THERMAL_CAL}
+	fi
+	unset RC_THERMAL_CAL
+
+	#
+	# Start gimbal to control mounts such as gimbals, disabled by default.
+	# 启动云台与载荷控制（默认关闭）
+	if param greater -s MNT_MODE_IN -1
+	then
+		gimbal start
+	fi
+
+	# Blacksheep telemetry
+	# 启动黑羊链路（TBS Crossfire / BST 遥控+数传） TBS BlackSheep BST 遥测链路驱动
+	# 常用于长航程穿越机/FPV 固件
+	if param compare -s TEL_BST_EN 1
+	then
+		bst start -X
+	fi
+
+	# 频谱分析 + 动态校准
+	# gyro_fft（机体震动噪声频谱分析）
+	# 实时检测振动频率
+	# 可用于 notch 滤波器自动调参，提高 EKF 稳定性
+	# 多旋翼、电机振动平台特别有用
+	if param compare -s IMU_GYRO_FFT_EN 1
+	then
+		gyro_fft start
+	fi
+
+	# 根据机体状态自动修正陀螺零偏
+	# 可在长时间运行中降低漂移
+	if param compare -s IMU_GYRO_CAL_EN 1
+	then
+		gyro_calibration start
+	fi
+
+	# Check for px4flow sensor PX4Flow 光流传感器
+	# 启动 px4flow 驱动，用于光流定位
+	# -X & 表示后台运行，不阻塞启动流程
+	if param compare -s SENS_EN_PX4FLOW 1
+	then
+		px4flow start -X &
+	fi
+
+	# 载荷投放设备（Payload Deliverer） 支持 投递装置/抛投机构
+	payload_deliverer start
+
+	# 燃油发动机控制 固定翼大载重机 具有油门、怠速、点火控制单元的发动机平台
+	if param compare -s ICE_EN 1
+	then
+		internal_combustion_engine_control start
+	fi
+
+	#
+	# Optional board supplied extras: rc.board_extras
+	# 板级扩展脚本 rc.board_extras
+	# 厂商/自定义硬件挂载此脚本
+	# 用来启动额外驱动、GPIO、外挂传感器
+	# 增加工业激光雷达驱动
+	# 板级外设初始化(GPIO/UART/SPI)
+	# 挂载定制服务脚本
+	set BOARD_RC_EXTRAS ${R}etc/init.d/rc.board_extras
+	if [ -f $BOARD_RC_EXTRAS ]
+	then
+		echo "Board extras: ${BOARD_RC_EXTRAS}"
+		. $BOARD_RC_EXTRAS
+	fi
+	unset BOARD_RC_EXTRAS
+
+	#
+	# Start any custom addons from the sdcard.
+	# SD 卡插件 rc.extras
+	# $FEXTRAS路径是 /fs/microsd/etc/extras.txt/rc.* 类型脚本
+	# 用户可在 SD 卡中扩展：
+	# 自定义 MAVLink 模块
+	# 第三方算法/进程启动
+	# 开机启动其他应用程序
+	if [ -f $FEXTRAS ]
+	then
+		echo "Addons script: ${FEXTRAS}"
+		. $FEXTRAS
+	fi
+
+	#
+	# Start the logger.
+	# 启动日志记录 logger
+	# 保存飞行数据 → /fs/microsd/log/
+	set RC_LOGGING ${R}etc/init.d/rc.logging
+	if [ -f ${RC_LOGGING} ]
+	then
+		. ${RC_LOGGING}
+	fi
+	unset RC_LOGGING
+
+	#
+	# Set additional parameters and env variables for selected AUTOSTART.
+	# 自动启动配置后处理
+	# 载入 飞行器类型参数配置后的额外设置
+	# 通常用于固件机型配置完成后的补丁参数
+	if ! param compare SYS_AUTOSTART 0
+	then
+		. ${R}etc/init.d/rc.autostart.post
+	fi
+
+
+	# Bootloader 维护升级
+	# 检查是否存在 bootloader 升级脚本
+	# 用于固件更新、量产升级维护
+	set BOARD_BOOTLOADER_UPGRADE ${R}etc/init.d/rc.board_bootloader_upgrade
+	if [ -f $BOARD_BOOTLOADER_UPGRADE ]
+	then
+		sh $BOARD_BOOTLOADER_UPGRADE
+	fi
+	unset BOARD_BOOTLOADER_UPGRADE
+
+	#
+	# Check if UAVCAN is enabled, default to it for ESCs.
+	# UAVCAN / Cyphal（CAN 总线设备）
+	# UAVCAN 传统应用最广，用于数字电调、空速计、电源模块
+	# Cyphal（UAVCAN v1）下一代协议, DDS风格，更现代化
+	if param greater -s UAVCAN_ENABLE 0
+	then
+		# Start core UAVCAN module.
+		if ! uavcan start
+		then
+			tune_control play error
+		fi
+	else
+		if param greater -s CYPHAL_ENABLE 0
+		then
+			cyphal start
+		fi
+	fi
+
+	# Zenoh 分布式通信层
+	# Zenoh = ROS2-DDS 替代方案/轻量物联网实时通信协议
+	# 适合 swarm 群无人机、多机协作任务
+	if param greater -s ZENOH_ENABLE 0
+	then
+		zenoh start
+	fi
+
+#
+# End of autostart.
+#
+fi
+
+#
+# Unset all script parameters to free RAM.
+#
+unset R
+unset FCONFIG
+unset FEXTRAS
+unset FRC
+unset IOFW
+unset LOGGER_ARGS
+unset LOGGER_BUF
+unset PARAM_FILE
+unset PARAM_BACKUP_FILE
+unset PARAM_DEFAULTS_VER
+unset RC_INPUT_ARGS
+unset STORAGE_AVAILABLE
+unset SDCARD_EXT_PATH
+unset SDCARD_FORMAT
+unset STARTUP_TUNE
+unset VEHICLE_TYPE
+
+#
+# Boot is complete, inform MAVLink app(s) that the system is now fully up and running.
+#
+mavlink boot_complete

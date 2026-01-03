@@ -3,6 +3,11 @@
 # PX4 FMUv6C specific board sensors init
 #------------------------------------------------------------------------------
 echo "Board sensors init for PX4 FMUv6C"
+
+
+# usb cdc mavlink
+param set-default SYS_USB_AUTO 2
+
 # board_adc start
 
 # if ver hwtypecmp V6C000002 V6C002002

@@ -6,10 +6,11 @@
         {
             "label": "echo env variable",
             "type": "shell",
-            "command": "echo $TARGET_PATH",
+            "command": "echo \"$TARGET_PATH\"",
             "options": {
                 "env": {
-                    "TARGET_PATH": "${command:cmake.launchTargetPath}"
+                    // "TARGET_PATH": "${command:cmake.launchTargetPath}",
+                    "TARGET_PATH": "${workspaceFolder}/build/${input:nshBuildTarget}/${input:nshBuildTarget}.elf"
                 }
             }
         },
@@ -19,22 +20,6 @@
             "command": "st-util -p 50000",
             "options": {},
             "problemMatcher": []
-        },
-        {
-            "label": "nsh: build",
-            "type": "shell",
-            "command": "make px4_fmu-v6c_bootloader",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared"
-            }
         },
         {
             "label": "nsh: clean",
@@ -75,8 +60,8 @@
         {
             "label": "nsh: build + flash",
             "dependsOn": [
-                "build",
-                "nsh: flash via openocd (stlink)"
+                "nsh: build",
+                "nsh: flash"
             ],
             "dependsOrder": "sequence",
             "group": {
@@ -85,7 +70,50 @@
             }
         },
         {
-            "label": "nsh: flash via openocd (stlink)",
+            "label": "nsh: build",
+            "type": "shell",
+            "command": "make ${input:nshBuildTarget}",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "nsh: flash",
+            "type": "shell",
+            "command": "echo $TARGET_PATH && /media/dy/disk/workspace/openocd/install/bin/openocd -f interface/stlink.cfg -f target/stm32h7x_dual_bank.cfg -c 'init' -c \"program $TARGET_PATH verify reset\" -c 'shutdown'",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "TARGET_PATH": "${workspaceFolder}/build/${input:nshBuildTarget}/${input:nshBuildTarget}.elf"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "build + flash",
+            "dependsOn": [
+                "build",
+                "flash via openocd"
+            ],
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "flash via openocd",
             "type": "shell",
             "command": "/media/dy/disk/workspace/openocd/install/bin/openocd -f interface/stlink.cfg -f target/stm32h7x_dual_bank.cfg -c 'init' -c 'program ${command:cmake.launchTargetPath} verify reset' -c 'shutdown'",
             "options": {
@@ -410,6 +438,16 @@
                 "default"
             ],
             "default": "default"
+        },
+        {
+            "type": "pickString",
+            "id": "nshBuildTarget",
+            "description": "nsh build target",
+            "options": [
+                "px4_fmu-v6c-min_bootloader",
+                "px4_fmu-v6c-min_default"
+            ],
+            "default": "px4_fmu-v6c-min_bootloader"
         }
     ]
 }

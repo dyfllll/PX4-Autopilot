@@ -75,6 +75,8 @@
 #include <px4_platform/board_determine_hw_info.h>
 #include <px4_platform/board_dma_alloc.h>
 
+#include <nuttx/usb/cdcacm.h>
+
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
@@ -256,6 +258,18 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	}
 
 #  endif /* CONFIG_MMCSD */
+
+// #if defined(CONFIG_CDCACM) && !defined(CONFIG_CDCACM_CONSOLE)
+// 	/* Initialize CDCACM */
+
+// 	syslog(LOG_INFO, "Initialize CDCACM device\n");
+
+// 	ret = cdcacm_initialize(0, NULL);
+// 	if (ret < 0)
+// 	{
+// 	syslog(LOG_ERR, "ERROR: cdcacm_initialize failed: %d\n", ret);
+// 	}
+// #endif /* CONFIG_CDCACM & !CONFIG_CDCACM_CONSOLE */
 
 	/* Configure the HW based on the manifest */
 

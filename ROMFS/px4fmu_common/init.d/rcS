@@ -482,187 +482,189 @@ else
         echo "Sensors started"
     fi
 
-#     #
-#     # state estimator selection
-#     # 状态估计器选择（State Estimator）
+    #
+    # state estimator selection
+    # 状态估计器选择（State Estimator）
 
-#     # EKF2（当前主流位置/姿态融合）
-#     # EKF2_EN=1 → 启动 ekf2
-#     # 使用IMU、GPS、气压计、磁罗盘数据融合
-#     # 后台运行 & 代表异步启动，不阻塞脚本
-#     if param compare -s EKF2_EN 1
-#     then
-#         ekf2 start &
-#     fi
+    # EKF2（当前主流位置/姿态融合）
+    # EKF2_EN=1 → 启动 ekf2
+    # 使用IMU、GPS、气压计、磁罗盘数据融合
+    # 后台运行 & 代表异步启动，不阻塞脚本
+    if param compare -s EKF2_EN 1
+    then
+        ekf2 start &
+    fi
 
-#     # LPE（Local Position Estimator，本地定位估计器）
-#     # 较早方案，一般用于室内/无GPS情况
-#     # 已逐渐被 EKF2 取代，只在旧机型还能看到
-#     if param compare -s LPE_EN 1
-#     then
-#         local_position_estimator start
-#     fi
+    # LPE（Local Position Estimator，本地定位估计器）
+    # 较早方案，一般用于室内/无GPS情况
+    # 已逐渐被 EKF2 取代，只在旧机型还能看到
+    if param compare -s LPE_EN 1
+    then
+        local_position_estimator start
+    fi
 
-#     # Attitude Estimator Q（四元数姿态估计器）
-#     # 仅做姿态估计，不进行位置融合
-#     # 适合无定位需求的机体，如小型飞控或特殊系统
-#     if param compare -s ATT_EN 1
-#     then
-#         attitude_estimator_q start
-#     fi
+    # Attitude Estimator Q（四元数姿态估计器）
+    # 仅做姿态估计，不进行位置融合
+    # 适合无定位需求的机体，如小型飞控或特殊系统
+    if param compare -s ATT_EN 1
+    then
+        attitude_estimator_q start
+    fi
 
-#     #
-#     # px4io
-#     # PX4IO 驱动与固件更新逻辑
-#     # PX4IO 是负责 PWM输出/接口管理的协处理器，例如 Pixhawk FMU + IO板结构。
-#     # 脚本检查是否支持 IO，然后判断是否需要固件更新：
-#     if px4io supported
-#     then
-#     # Check if PX4IO present and update firmware if needed.
-#     # 检查IO固件文件是否存在，以及CRC是否匹配
-#     # 若不匹配 → 需要更新
-#         if [ -f $IOFW ]
-#         then
-#             if ! px4io checkcrc ${IOFW}
-#             then
-#                 # tune Program PX4IO 执行升级动作，同时播放提示音
-#                 # 音效：准备升级PX4IO
-#                 tune_control play -t 16 # tune 16 = PROG_PX4IO
+    #
+    # px4io
+    # PX4IO 驱动与固件更新逻辑
+    # PX4IO 是负责 PWM输出/接口管理的协处理器，例如 Pixhawk FMU + IO板结构。
+    # 脚本检查是否支持 IO，然后判断是否需要固件更新：
+    if px4io supported
+    then
+    # Check if PX4IO present and update firmware if needed.
+    # 检查IO固件文件是否存在，以及CRC是否匹配
+    # 若不匹配 → 需要更新
+        if [ -f $IOFW ]
+        then
+            if ! px4io checkcrc ${IOFW}
+            then
+                # tune Program PX4IO 执行升级动作，同时播放提示音
+                # 音效：准备升级PX4IO
+                tune_control play -t 16 # tune 16 = PROG_PX4IO
 
-#                 if px4io update ${IOFW}
-#                 then
-#                     usleep 10000
-#                     tune_control stop
-#                     # 升级后再次验证CRC，确保固件无损
-#                     if px4io checkcrc ${IOFW}
-#                     then
-#                         tune_control play -t 17 # tune 17 = PROG_PX4IO_OK
-#                     else
-#                         tune_control play -t 18 # tune 18 = PROG_PX4IO_ERR
-#                     fi
-#                 else
-#                     tune_control stop
-#                 fi
-#             fi
+                if px4io update ${IOFW}
+                then
+                    usleep 10000
+                    tune_control stop
+                    # 升级后再次验证CRC，确保固件无损
+                    if px4io checkcrc ${IOFW}
+                    then
+                        tune_control play -t 17 # tune 17 = PROG_PX4IO_OK
+                    else
+                        tune_control play -t 18 # tune 18 = PROG_PX4IO_ERR
+                    fi
+                else
+                    tune_control stop
+                fi
+            fi
 
-#             if ! px4io start
-#             then
-#                 echo "PX4IO start failed"
-#                 set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE
-#             fi
-#         fi
-#     fi
+            if ! px4io start
+            then
+                echo "PX4IO start failed"
+                set STARTUP_TUNE 2 # tune 2 = ERROR_TUNE
+            fi
+        fi
+    fi
 
-#     # Heater driver for temperature regulated IMUs.
-#     # The heater needs to start after px4io.
-#     # IMU控温加热模块启动
-#     # PX4某些IMU自带加热线圈，可升温到稳定工作温度
-#     # 降噪滤振，提高IMU稳定性
-#     # 主要用于工业机型或寒冷环境飞行
-#     # SENS_EN_THERMAL=1 才启用加热驱动
-#     if param compare -s SENS_EN_THERMAL 1
-#     then
-#         heater start
-#     fi
-
-
-#     #
-#     # RC update (map raw RC input to calibrate manual control)
-#     #  start before commander
-#     # RC 相关模块启动（用于遥控输入 → 控制指令）
-#     # rc_update 读取遥控器接收数据(SBUS/DSMX/CRSF…)并映射到通道
-#     # manual_control 把遥控通道映射成 roll/pitch/yaw/throttle 等控制量供 Commander 使用
-#     rc_update start
-#     manual_control start
-
-#     # Start camera trigger, capture and PPS before pwm_out as they might access
-#     # pwm pins 相机/捕获/时间同步功能启动
-#     # TRIG_MODE > 0    启用相机触发模块
-#     # camera_trigger    输出PWM/信号触发相机拍照
-#     # camera_feedback    接收相机回传脉冲用于时间戳对齐
-#     # 用于航测无人机常见功能。
-#     if param greater -s TRIG_MODE 0
-#     then
-#         camera_trigger start
-#         camera_feedback start
-#     fi
+    # Heater driver for temperature regulated IMUs.
+    # The heater needs to start after px4io.
+    # IMU控温加热模块启动
+    # PX4某些IMU自带加热线圈，可升温到稳定工作温度
+    # 降噪滤振，提高IMU稳定性
+    # 主要用于工业机型或寒冷环境飞行
+    # SENS_EN_THERMAL=1 才启用加热驱动
+    if param compare -s SENS_EN_THERMAL 1
+    then
+        heater start
+    fi
 
 
-#     # PPS capture driver PPS 时间同步
-#     # PPS = Pulse Per Second（通常来自RTK GNSS）
-#     # 用于高精度时钟同步（例如定位融合、相机曝光对齐）
-#     if param greater -s PPS_CAP_ENABLE 0
-#     then
-#         pps_capture start
-#     fi
+    #
+    # RC update (map raw RC input to calibrate manual control)
+    #  start before commander
+    # RC 相关模块启动（用于遥控输入 → 控制指令）
+    # rc_update 读取遥控器接收数据(SBUS/DSMX/CRSF…)并映射到通道
+    # manual_control 把遥控通道映射成 roll/pitch/yaw/throttle 等控制量供 Commander 使用
+    rc_update start
+    manual_control start
+
+    # Start camera trigger, capture and PPS before pwm_out as they might access
+    # pwm pins 相机/捕获/时间同步功能启动
+    # TRIG_MODE > 0    启用相机触发模块
+    # camera_trigger    输出PWM/信号触发相机拍照
+    # camera_feedback    接收相机回传脉冲用于时间戳对齐
+    # 用于航测无人机常见功能。
+    if param greater -s TRIG_MODE 0
+    then
+        camera_trigger start
+        camera_feedback start
+    fi
 
 
-#     # RPM capture driver RPM 速度捕获 读取发动机/电机转速捕获信号（固定翼/油机常见）
-#     if param greater -s RPM_CAP_ENABLE 0
-#     then
-#         rpm_capture start
-#     fi
+    # PPS capture driver PPS 时间同步
+    # PPS = Pulse Per Second（通常来自RTK GNSS）
+    # 用于高精度时钟同步（例如定位融合、相机曝光对齐）
+    if param greater -s PPS_CAP_ENABLE 0
+    then
+        pps_capture start
+    fi
 
 
-#     # Camera capture driver 用于相机快门信号回读（与时间戳同步更精准）
-#     if param greater -s CAM_CAP_FBACK 0
-#     then
-#         if camera_capture start
-#         then
-#             camera_capture on
-#         fi
-#     fi
+    # RPM capture driver RPM 速度捕获 读取发动机/电机转速捕获信号（固定翼/油机常见）
+    if param greater -s RPM_CAP_ENABLE 0
+    then
+        rpm_capture start
+    fi
 
-#     #
-#     # Commander
-#     # Commander (飞控核心状态机) 启动
-#     # Commander 是飞控“大脑”，负责：
-#     # 飞行模式切换
-#     # 起飞/降落逻辑
-#     # 失控保护 + failsafe
-#     # 解锁/加锁
-#     # 电池、RC、GPS等健康监控
-#     # HITL（Hardware In The Loop 仿真）
-#     if param greater SYS_HITL 0
-#     then
-#         commander start -h
 
-#         if ! pwm_out_sim start -m hil
-#         then
-#             tune_control play error
-#         fi
+    # Camera capture driver 用于相机快门信号回读（与时间戳同步更精准）
+    if param greater -s CAM_CAP_FBACK 0
+    then
+        if camera_capture start
+        then
+            camera_capture on
+        fi
+    fi
 
-#     else
-#         # 启动飞控核心模块 Commander
-#         commander start
+    #
+    # Commander
+    # Commander (飞控核心状态机) 启动
+    # Commander 是飞控“大脑”，负责：
+    # 飞行模式切换
+    # 起飞/降落逻辑
+    # 失控保护 + failsafe
+    # 解锁/加锁
+    # 电池、RC、GPS等健康监控
+    # HITL（Hardware In The Loop 仿真）
+    if param greater SYS_HITL 0
+    then
+        commander start -h
 
-#         # DShot 电调协议驱动
-#         dshot start
-#         # PWM 输出驱动
-#         pwm_out start
-#     fi
+        if ! pwm_out_sim start -m hil
+        then
+            tune_control play error
+        fi
 
-#     #
-#     # Configure vehicle type specific parameters.
-#     # Note: rc.vehicle_setup is the entry point for all vehicle type specific setup.
-#     # rc.vehicle_setup 是 所有机型特定配置的统一入口，根据 SYS_AUTOSTART 加载对应的 airframe 设置：
-#     # 多旋翼MC    混控矩阵、PWM输出数目、EKF参数、起飞逻辑
-#     # 固定翼 FW    控制面输出映射、空速、TECS参数
-#     # VTOL    同时加载 MC+FW 参数，外加转换逻辑
-#     # ROVER/BOAT    差速驱动/转向配置
-#     # 自定义    可扩展脚本加载硬件or参数
-#     . ${R}etc/init.d/rc.vehicle_setup
+    else
+        # 启动飞控核心模块 Commander
+        commander start
 
-#     # Pre-takeoff continuous magnetometer calibration
-#     # 磁力计运行中校准
-#     # MBE_ENABLE=1    启用飞行前实时磁偏估计器
-#     # mag_bias_estimator    动态估计磁偏误差，减少磁干扰影响，提高航向精度
-#     # 适合环境磁干扰较大的平台（VTOL、工业无人机常用）
-#     # 正常飞行中会持续优化磁偏，不一定需要手动校准。
-#     if param compare -s MBE_ENABLE 1
-#     then
-#         mag_bias_estimator start
-#     fi
+        # DShot 电调协议驱动
+        dshot start
+        # PWM 输出驱动
+        pwm_out start
+    fi
+
+
+    #
+    # Configure vehicle type specific parameters.
+    # Note: rc.vehicle_setup is the entry point for all vehicle type specific setup.
+    # rc.vehicle_setup 是 所有机型特定配置的统一入口，根据 SYS_AUTOSTART 加载对应的 airframe 设置：
+    # 多旋翼MC    混控矩阵、PWM输出数目、EKF参数、起飞逻辑
+    # 固定翼 FW    控制面输出映射、空速、TECS参数
+    # VTOL    同时加载 MC+FW 参数，外加转换逻辑
+    # ROVER/BOAT    差速驱动/转向配置
+    # 自定义    可扩展脚本加载硬件or参数
+    . ${R}etc/init.d/rc.vehicle_setup
+
+
+    # Pre-takeoff continuous magnetometer calibration
+    # 磁力计运行中校准
+    # MBE_ENABLE=1    启用飞行前实时磁偏估计器
+    # mag_bias_estimator    动态估计磁偏误差，减少磁干扰影响，提高航向精度
+    # 适合环境磁干扰较大的平台（VTOL、工业无人机常用）
+    # 正常飞行中会持续优化磁偏，不一定需要手动校准。
+    if param compare -s MBE_ENABLE 1
+    then
+        mag_bias_estimator start
+    fi
 
     #
     # Optional board mavlink streams: rc.board_mavlink
@@ -710,177 +712,177 @@ else
     fi
 
 
-#     #
-#     # Play the startup tune (if not disabled or there is an error)
-#     # 播放启动提示音（启动成功/错误提示）
-#     param compare CBRK_BUZZER 782090
-#     if [ "$?" != "0" -o "$STARTUP_TUNE" != "1" ]
-#     then
-#         tune_control play -t $STARTUP_TUNE
-#     fi
+    #
+    # Play the startup tune (if not disabled or there is an error)
+    # 播放启动提示音（启动成功/错误提示）
+    param compare CBRK_BUZZER 782090
+    if [ "$?" != "0" -o "$STARTUP_TUNE" != "1" ]
+    then
+        tune_control play -t $STARTUP_TUNE
+    fi
 
-#     #
-#     # Start the navigator.
-#     # 启动 Navigator 导航任务模块
-#     # 航点任务（Mission）
-#     # RTL（返航）逻辑
-#     # 导航控制模式 Position/Auto/Follow etc
-#     # 地理围栏、避障接口
-#     # 任务状态机与 Commander 联动
-#     # 没有它 -> 无法执行自动任务飞行。
-#     navigator start
+    #
+    # Start the navigator.
+    # 启动 Navigator 导航任务模块
+    # 航点任务（Mission）
+    # RTL（返航）逻辑
+    # 导航控制模式 Position/Auto/Follow etc
+    # 地理围栏、避障接口
+    # 任务状态机与 Commander 联动
+    # 没有它 -> 无法执行自动任务飞行。
+    navigator start
 
-#     #
-#     # Start a thermal calibration if required.
-#     # 温度校准脚本（可选）
-#     # 若板卡支持温度标定，则执行 rc.thermal_cal
-#     # 主要做 IMU 在不同温度下的偏移补偿建模
-#     # 使飞控在寒冷/高温环境下依旧稳定
-#     set RC_THERMAL_CAL ${R}etc/init.d/rc.thermal_cal
-#     if [ -f ${RC_THERMAL_CAL} ]
-#     then
-#         . ${RC_THERMAL_CAL}
-#     fi
-#     unset RC_THERMAL_CAL
+    #
+    # Start a thermal calibration if required.
+    # 温度校准脚本（可选）
+    # 若板卡支持温度标定，则执行 rc.thermal_cal
+    # 主要做 IMU 在不同温度下的偏移补偿建模
+    # 使飞控在寒冷/高温环境下依旧稳定
+    set RC_THERMAL_CAL ${R}etc/init.d/rc.thermal_cal
+    if [ -f ${RC_THERMAL_CAL} ]
+    then
+        . ${RC_THERMAL_CAL}
+    fi
+    unset RC_THERMAL_CAL
 
-#     #
-#     # Start gimbal to control mounts such as gimbals, disabled by default.
-#     # 启动云台与载荷控制（默认关闭）
-#     if param greater -s MNT_MODE_IN -1
-#     then
-#         gimbal start
-#     fi
+    #
+    # Start gimbal to control mounts such as gimbals, disabled by default.
+    # 启动云台与载荷控制（默认关闭）
+    if param greater -s MNT_MODE_IN -1
+    then
+        gimbal start
+    fi
 
-#     # Blacksheep telemetry
-#     # 启动黑羊链路（TBS Crossfire / BST 遥控+数传） TBS BlackSheep BST 遥测链路驱动
-#     # 常用于长航程穿越机/FPV 固件
-#     if param compare -s TEL_BST_EN 1
-#     then
-#         bst start -X
-#     fi
+    # Blacksheep telemetry
+    # 启动黑羊链路（TBS Crossfire / BST 遥控+数传） TBS BlackSheep BST 遥测链路驱动
+    # 常用于长航程穿越机/FPV 固件
+    if param compare -s TEL_BST_EN 1
+    then
+        bst start -X
+    fi
 
-#     # 频谱分析 + 动态校准
-#     # gyro_fft（机体震动噪声频谱分析）
-#     # 实时检测振动频率
-#     # 可用于 notch 滤波器自动调参，提高 EKF 稳定性
-#     # 多旋翼、电机振动平台特别有用
-#     if param compare -s IMU_GYRO_FFT_EN 1
-#     then
-#         gyro_fft start
-#     fi
+    # 频谱分析 + 动态校准
+    # gyro_fft（机体震动噪声频谱分析）
+    # 实时检测振动频率
+    # 可用于 notch 滤波器自动调参，提高 EKF 稳定性
+    # 多旋翼、电机振动平台特别有用
+    if param compare -s IMU_GYRO_FFT_EN 1
+    then
+        gyro_fft start
+    fi
 
-#     # 根据机体状态自动修正陀螺零偏
-#     # 可在长时间运行中降低漂移
-#     if param compare -s IMU_GYRO_CAL_EN 1
-#     then
-#         gyro_calibration start
-#     fi
+    # 根据机体状态自动修正陀螺零偏
+    # 可在长时间运行中降低漂移
+    if param compare -s IMU_GYRO_CAL_EN 1
+    then
+        gyro_calibration start
+    fi
 
-#     # Check for px4flow sensor PX4Flow 光流传感器
-#     # 启动 px4flow 驱动，用于光流定位
-#     # -X & 表示后台运行，不阻塞启动流程
-#     if param compare -s SENS_EN_PX4FLOW 1
-#     then
-#         px4flow start -X &
-#     fi
+    # Check for px4flow sensor PX4Flow 光流传感器
+    # 启动 px4flow 驱动，用于光流定位
+    # -X & 表示后台运行，不阻塞启动流程
+    if param compare -s SENS_EN_PX4FLOW 1
+    then
+        px4flow start -X &
+    fi
 
-#     # 载荷投放设备（Payload Deliverer） 支持 投递装置/抛投机构
-#     payload_deliverer start
+    # 载荷投放设备（Payload Deliverer） 支持 投递装置/抛投机构
+    payload_deliverer start
 
-#     # 燃油发动机控制 固定翼大载重机 具有油门、怠速、点火控制单元的发动机平台
-#     if param compare -s ICE_EN 1
-#     then
-#         internal_combustion_engine_control start
-#     fi
+    # 燃油发动机控制 固定翼大载重机 具有油门、怠速、点火控制单元的发动机平台
+    if param compare -s ICE_EN 1
+    then
+        internal_combustion_engine_control start
+    fi
 
-#     #
-#     # Optional board supplied extras: rc.board_extras
-#     # 板级扩展脚本 rc.board_extras
-#     # 厂商/自定义硬件挂载此脚本
-#     # 用来启动额外驱动、GPIO、外挂传感器
-#     # 增加工业激光雷达驱动
-#     # 板级外设初始化(GPIO/UART/SPI)
-#     # 挂载定制服务脚本
-#     set BOARD_RC_EXTRAS ${R}etc/init.d/rc.board_extras
-#     if [ -f $BOARD_RC_EXTRAS ]
-#     then
-#         echo "Board extras: ${BOARD_RC_EXTRAS}"
-#         . $BOARD_RC_EXTRAS
-#     fi
-#     unset BOARD_RC_EXTRAS
+    #
+    # Optional board supplied extras: rc.board_extras
+    # 板级扩展脚本 rc.board_extras
+    # 厂商/自定义硬件挂载此脚本
+    # 用来启动额外驱动、GPIO、外挂传感器
+    # 增加工业激光雷达驱动
+    # 板级外设初始化(GPIO/UART/SPI)
+    # 挂载定制服务脚本
+    set BOARD_RC_EXTRAS ${R}etc/init.d/rc.board_extras
+    if [ -f $BOARD_RC_EXTRAS ]
+    then
+        echo "Board extras: ${BOARD_RC_EXTRAS}"
+        . $BOARD_RC_EXTRAS
+    fi
+    unset BOARD_RC_EXTRAS
 
-#     #
-#     # Start any custom addons from the sdcard.
-#     # SD 卡插件 rc.extras
-#     # $FEXTRAS路径是 /fs/microsd/etc/extras.txt/rc.* 类型脚本
-#     # 用户可在 SD 卡中扩展：
-#     # 自定义 MAVLink 模块
-#     # 第三方算法/进程启动
-#     # 开机启动其他应用程序
-#     if [ -f $FEXTRAS ]
-#     then
-#         echo "Addons script: ${FEXTRAS}"
-#         . $FEXTRAS
-#     fi
+    #
+    # Start any custom addons from the sdcard.
+    # SD 卡插件 rc.extras
+    # $FEXTRAS路径是 /fs/microsd/etc/extras.txt/rc.* 类型脚本
+    # 用户可在 SD 卡中扩展：
+    # 自定义 MAVLink 模块
+    # 第三方算法/进程启动
+    # 开机启动其他应用程序
+    if [ -f $FEXTRAS ]
+    then
+        echo "Addons script: ${FEXTRAS}"
+        . $FEXTRAS
+    fi
 
-#     #
-#     # Start the logger.
-#     # 启动日志记录 logger
-#     # 保存飞行数据 → /fs/microsd/log/
-#     set RC_LOGGING ${R}etc/init.d/rc.logging
-#     if [ -f ${RC_LOGGING} ]
-#     then
-#         . ${RC_LOGGING}
-#     fi
-#     unset RC_LOGGING
+    #
+    # Start the logger.
+    # 启动日志记录 logger
+    # 保存飞行数据 → /fs/microsd/log/
+    set RC_LOGGING ${R}etc/init.d/rc.logging
+    if [ -f ${RC_LOGGING} ]
+    then
+        . ${RC_LOGGING}
+    fi
+    unset RC_LOGGING
 
-#     #
-#     # Set additional parameters and env variables for selected AUTOSTART.
-#     # 自动启动配置后处理
-#     # 载入 飞行器类型参数配置后的额外设置
-#     # 通常用于固件机型配置完成后的补丁参数
-#     if ! param compare SYS_AUTOSTART 0
-#     then
-#         . ${R}etc/init.d/rc.autostart.post
-#     fi
+    #
+    # Set additional parameters and env variables for selected AUTOSTART.
+    # 自动启动配置后处理
+    # 载入 飞行器类型参数配置后的额外设置
+    # 通常用于固件机型配置完成后的补丁参数
+    if ! param compare SYS_AUTOSTART 0
+    then
+        . ${R}etc/init.d/rc.autostart.post
+    fi
 
 
-#     # Bootloader 维护升级
-#     # 检查是否存在 bootloader 升级脚本
-#     # 用于固件更新、量产升级维护
-#     set BOARD_BOOTLOADER_UPGRADE ${R}etc/init.d/rc.board_bootloader_upgrade
-#     if [ -f $BOARD_BOOTLOADER_UPGRADE ]
-#     then
-#         sh $BOARD_BOOTLOADER_UPGRADE
-#     fi
-#     unset BOARD_BOOTLOADER_UPGRADE
+    # Bootloader 维护升级
+    # 检查是否存在 bootloader 升级脚本
+    # 用于固件更新、量产升级维护
+    set BOARD_BOOTLOADER_UPGRADE ${R}etc/init.d/rc.board_bootloader_upgrade
+    if [ -f $BOARD_BOOTLOADER_UPGRADE ]
+    then
+        sh $BOARD_BOOTLOADER_UPGRADE
+    fi
+    unset BOARD_BOOTLOADER_UPGRADE
 
-#     #
-#     # Check if UAVCAN is enabled, default to it for ESCs.
-#     # UAVCAN / Cyphal（CAN 总线设备）
-#     # UAVCAN 传统应用最广，用于数字电调、空速计、电源模块
-#     # Cyphal（UAVCAN v1）下一代协议, DDS风格，更现代化
-#     if param greater -s UAVCAN_ENABLE 0
-#     then
-#         # Start core UAVCAN module.
-#         if ! uavcan start
-#         then
-#             tune_control play error
-#         fi
-#     else
-#         if param greater -s CYPHAL_ENABLE 0
-#         then
-#             cyphal start
-#         fi
-#     fi
+    #
+    # Check if UAVCAN is enabled, default to it for ESCs.
+    # UAVCAN / Cyphal（CAN 总线设备）
+    # UAVCAN 传统应用最广，用于数字电调、空速计、电源模块
+    # Cyphal（UAVCAN v1）下一代协议, DDS风格，更现代化
+    if param greater -s UAVCAN_ENABLE 0
+    then
+        # Start core UAVCAN module.
+        if ! uavcan start
+        then
+            tune_control play error
+        fi
+    else
+        if param greater -s CYPHAL_ENABLE 0
+        then
+            cyphal start
+        fi
+    fi
 
-#     # Zenoh 分布式通信层
-#     # Zenoh = ROS2-DDS 替代方案/轻量物联网实时通信协议
-#     # 适合 swarm 群无人机、多机协作任务
-#     if param greater -s ZENOH_ENABLE 0
-#     then
-#         zenoh start
-#     fi
+    # Zenoh 分布式通信层
+    # Zenoh = ROS2-DDS 替代方案/轻量物联网实时通信协议
+    # 适合 swarm 群无人机、多机协作任务
+    if param greater -s ZENOH_ENABLE 0
+    then
+        zenoh start
+    fi
 
 #
 # End of autostart.

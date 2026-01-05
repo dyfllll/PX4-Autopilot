@@ -5,8 +5,7 @@
 echo "Board sensors init for PX4 FMUv6C"
 
 
-# usb cdc mavlink
-param set-default SYS_USB_AUTO 2
+
 
 # board_adc start
 

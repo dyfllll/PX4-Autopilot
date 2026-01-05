@@ -203,7 +203,6 @@ stm32_boardinitialize(void)
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
-	syslog(LOG_INFO, "[boot] Board app initialize: 0x%08lx\r\n", (unsigned long)arg);
 #if !defined(BOOTLOADER)
 
 	/* Power on Interfaces */
@@ -239,14 +238,14 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	hrt_call_every(&serial_dma_call, 1000, 1000, (hrt_callout)stm32_serial_dma_poll, NULL);
 #  endif
 
-	// /* initial LED state */
-	// drv_led_start();
-	// led_off(LED_RED);
-	// led_off(LED_BLUE);
+	/* initial LED state */
+	drv_led_start();
+	led_off(LED_RED);
+	led_off(LED_BLUE);
 
-	// if (board_hardfault_init(2, true) != 0) {
-	// 	led_on(LED_RED);
-	// }
+	if (board_hardfault_init(2, true) != 0) {
+		led_on(LED_RED);
+	}
 
 #  ifdef CONFIG_MMCSD
 	int ret = stm32_sdio_initialize();

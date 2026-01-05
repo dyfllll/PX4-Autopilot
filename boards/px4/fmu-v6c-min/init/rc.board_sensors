@@ -33,3 +33,19 @@ echo "Board sensors init for PX4 FMUv6C"
 # ist8310 -X -b 1 -R 10 start
 
 # mpu6500 -s -R 0 start
+
+# 只有温度
+# icm20948_i2c_passthrough -X -b 1 -a 0x68 start
+# 只能spi模式启动
+# icm20948 -X -b 1 -a 0x68 start
+
+bmi088 -A -R 0 -s start
+bmi088 -G -R 0 -s  start
+mpu6500 -s -R 0 start
+
+# # ROTATION_ROLL_180_YAW_90     = 10,
+# # ROTATION_ROLL_180_YAW_270    = 14,
+# ist8310 -X -b 1 -R 10 start
+# ist8310 -X -b 1 -R 14 start
+
+bmp388 -X -b 1 -a 0x76 start

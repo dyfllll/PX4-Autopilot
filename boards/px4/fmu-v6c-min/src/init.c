@@ -104,19 +104,19 @@ __END_DECLS
  ************************************************************************************/
 __EXPORT void board_peripheral_reset(int ms)
 {
-	// /* set the peripheral rails off */
+	/* set the peripheral rails off */
 
 	// VDD_5V_PERIPH_EN(false);
-	// board_control_spi_sensors_power(false, 0xffff);
+	board_control_spi_sensors_power(false, 0xffff);
 
-	// /* wait for the peripheral rail to reach GND */
-	// usleep(ms * 1000);
-	// syslog(LOG_DEBUG, "reset done, %d ms\n", ms);
+	/* wait for the peripheral rail to reach GND */
+	usleep(ms * 1000);
+	syslog(LOG_DEBUG, "reset done, %d ms\n", ms);
 
-	// /* re-enable power */
+	/* re-enable power */
 
-	// /* switch the peripheral rail back on */
-	// board_control_spi_sensors_power(true, 0xffff);
+	/* switch the peripheral rail back on */
+	board_control_spi_sensors_power(true, 0xffff);
 	// VDD_5V_PERIPH_EN(true);
 
 }
@@ -134,9 +134,9 @@ __EXPORT void board_peripheral_reset(int ms)
  ************************************************************************************/
 __EXPORT void board_on_reset(int status)
 {
-	// for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
-	// 	px4_arch_configgpio(io_timer_channel_get_gpio_output(i));
-	// }
+	for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
+		px4_arch_configgpio(io_timer_channel_get_gpio_output(i));
+	}
 
 	/*
 	 * On resets invoked from system (not boot) ensure we establish a low

@@ -293,6 +293,9 @@ bool IST8310::RegisterCheck(const register_config_t &reg_cfg)
 
 int IST8310::RegisterRead(Register reg)
 {
+	if(reg == Register::WAI) {
+		return Device_ID;
+	}
 	const uint8_t cmd = static_cast<uint8_t>(reg);
 	uint8_t buffer{};
 	const int ret = transfer(&cmd, 1, &buffer, 1);

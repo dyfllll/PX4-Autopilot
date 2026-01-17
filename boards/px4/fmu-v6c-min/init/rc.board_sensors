@@ -54,4 +54,6 @@ bmp388 -X -b 1 -a 0x76 start
 
 ina226 -X -b 2 -a 0x40 start
 
+vl53l0x -X -b 4 -a 0x29 start
+
 # icm20948 -s start

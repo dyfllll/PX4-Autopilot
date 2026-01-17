@@ -4,12 +4,14 @@
 #------------------------------------------------------------------------------
 
 
-param set-default BAT1_V_DIV 18.1
-param set-default BAT2_V_DIV 18.1
+# param set-default BAT1_V_DIV 18.1
+# param set-default BAT2_V_DIV 18.1
 
-param set-default BAT1_A_PER_V 36.367515152
-param set-default BAT2_A_PER_V 36.367515152
+# param set-default BAT1_A_PER_V 36.367515152
+# param set-default BAT2_A_PER_V 36.367515152
 
+# disable supply check
+param set-default CBRK_SUPPLY_CHK 894281
 
 # usb cdc mavlink
 param set-default SYS_USB_AUTO 2
@@ -17,6 +19,8 @@ param set-default SYS_USB_AUTO 2
 # # 自动配置参数
 # param set SYS_AUTOCONFIG 1
 
-# 不自动启动i2c的驱动
+# 不自动启动i2c的驱动  默认的一些驱动
 param set-default SENS_EXT_I2C_PRB 0
 
+
+mavlink start -d /dev/ttyS5 -b 115200

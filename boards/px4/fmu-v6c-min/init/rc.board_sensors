@@ -44,13 +44,14 @@ bmi088 -A -R 0 -s start
 bmi088 -G -R 0 -s  start
 mpu6500 -s -R 0 start
 
-# # ROTATION_ROLL_180_YAW_90     = 10,
-# # ROTATION_ROLL_180_YAW_270    = 14,
-# ist8310 -X -b 1 -R 10 start
-
-ist8310 -X -b 1 -R 14 start
+# ROTATION_YAW_90              = 2,
+# ROTATION_YAW_270             = 6,
+# ROTATION_ROLL_180_YAW_90     = 10,
+# ROTATION_ROLL_180_YAW_270    = 14,
+# ist8310 -X -b 1 -R 2 start
 
 bmp388 -X -b 1 -a 0x76 start
 
+ina226 -X -b 2 -a 0x40 start
 
 # icm20948 -s start

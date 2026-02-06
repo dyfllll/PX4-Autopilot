@@ -38,9 +38,9 @@
 constexpr px4_spi_bus_all_hw_t px4_spi_buses_all_hw[BOARD_NUM_SPI_CFG_HW_VERSIONS] = {
 	initSPIHWVersion(V6C00, {
 		initSPIBus(SPI::Bus::SPI1, {
-			initSPIDevice(DRV_GYR_DEVTYPE_BMI088,  SPI::CS{GPIO::PortA, GPIO::Pin4}),
-			initSPIDevice(DRV_ACC_DEVTYPE_BMI088,  SPI::CS{GPIO::PortC, GPIO::Pin4}),
-			initSPIDevice(DRV_IMU_DEVTYPE_MPU6500, SPI::CS{GPIO::PortA, GPIO::Pin3}),
+			initSPIDevice(DRV_GYR_DEVTYPE_BMI088,  SPI::CS{GPIO::PortA, GPIO::Pin4}, SPI::DRDY{GPIO::PortE, GPIO::Pin5}),
+			initSPIDevice(DRV_ACC_DEVTYPE_BMI088,  SPI::CS{GPIO::PortC, GPIO::Pin4}, SPI::DRDY{GPIO::PortE, GPIO::Pin4}),
+			initSPIDevice(DRV_IMU_DEVTYPE_MPU6500, SPI::CS{GPIO::PortA, GPIO::Pin3}, SPI::DRDY{GPIO::PortE, GPIO::Pin6}),
 		}),
 		// initSPIBus(SPI::Bus::SPI1, {
 		// 	initSPIDevice(DRV_IMU_DEVTYPE_ICM20948,  SPI::CS{GPIO::PortA, GPIO::Pin4}), //gyro

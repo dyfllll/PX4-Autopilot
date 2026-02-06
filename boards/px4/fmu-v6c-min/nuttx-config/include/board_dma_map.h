@@ -62,6 +62,8 @@
 // DMAMUX2 Using at most 8 Channels on DMA2 --------   Assigned
 //                                                     V
 
+#define DMAMAP_USART1_RX  DMAMAP_DMA12_USART1RX_1
+#define DMAMAP_USART1_TX  DMAMAP_DMA12_USART1TX_1
 
 #define DMAMAP_USART3_RX  DMAMAP_DMA12_USART3RX_1   /* 3 DMA2:45 DEBUG */
 #define DMAMAP_USART3_TX  DMAMAP_DMA12_USART3TX_1   /* 4 DMA2:46 DEBUG */

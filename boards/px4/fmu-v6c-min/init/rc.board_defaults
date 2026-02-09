@@ -22,6 +22,3 @@ param set-default SYS_USB_AUTO 2
 # 不自动启动i2c的驱动  默认的一些驱动
 param set-default SENS_EXT_I2C_PRB 0
 
-
-# uart7
-mavlink start -d /dev/ttyS5 -b 921600

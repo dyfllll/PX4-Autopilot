@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# PX4 FMUv6C specific board extras init
+#------------------------------------------------------------------------------
+
+# uart7
+mavlink start -d /dev/ttyS5 -b 921600
+
+# uxrce dds client
+uxrce_dds_client start -t serial -d /dev/ttyACM0

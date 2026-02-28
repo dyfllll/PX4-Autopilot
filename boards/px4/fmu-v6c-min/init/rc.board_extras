@@ -4,7 +4,7 @@
 #------------------------------------------------------------------------------
 
 # uart7
-mavlink start -d /dev/ttyS5 -b 921600
+# mavlink start -d /dev/ttyS5 -b 921600
 
 # uxrce dds client
-uxrce_dds_client start -t serial -d /dev/ttyACM0
+# uxrce_dds_client start -t serial -d /dev/ttyACM0

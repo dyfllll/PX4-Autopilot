@@ -46,7 +46,8 @@ constexpr px4_spi_bus_all_hw_t px4_spi_buses_all_hw[BOARD_NUM_SPI_CFG_HW_VERSION
 		// 	initSPIDevice(DRV_IMU_DEVTYPE_ICM20948,  SPI::CS{GPIO::PortA, GPIO::Pin4}), //gyro
 		// }, {GPIO::PortB, GPIO::Pin2}),
 		initSPIBus(SPI::Bus::SPI2, {
-			initSPIDevice(SPIDEV_FLASH(0), SPI::CS{GPIO::PortD, GPIO::Pin4})
+			initSPIDevice(SPIDEV_FLASH(0), SPI::CS{GPIO::PortD, GPIO::Pin4}),
+			initSPIDevice(DRV_FLOW_DEVTYPE_PMW3901,  SPI::CS{GPIO::PortG, GPIO::Pin9}),//SPI::DRDY{GPIO::PortG, GPIO::Pin10} 驱动中没有用
 		}),
 	}),
 	initSPIHWVersion(V6C01, {

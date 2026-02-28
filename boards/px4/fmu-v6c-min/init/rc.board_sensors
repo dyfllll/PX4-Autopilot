@@ -59,4 +59,4 @@ ina226 -X -b 2 -a 0x40 start
 # icm20948 -s start
 
 pmw3901 start -s -b 2
-vl53l1x -X -b 1 -a 0x29 start
+vl53l1x -X -b 4 -a 0x29 start

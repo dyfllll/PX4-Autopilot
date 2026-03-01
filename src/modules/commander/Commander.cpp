@@ -2943,8 +2943,8 @@ void Commander::manualControlCheck()
 
 			// if there's never been a mode change force position control as initial state
 			if (!_user_mode_intention.everHadModeChange() && (is_mavlink || !_mode_switch_mapped)) {
-				// _user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_POSCTL, ModeChangeSource::User, false, true);
-				_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_ALTCTL, ModeChangeSource::User, false, true);
+				_user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_POSCTL, ModeChangeSource::User, false, true);
+				// _user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_ALTCTL, ModeChangeSource::User, false, true);
 				// _user_mode_intention.change(vehicle_status_s::NAVIGATION_STATE_STAB, ModeChangeSource::User, false, true);
 			}
 		}

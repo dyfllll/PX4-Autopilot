@@ -7,4 +7,9 @@
 mavlink start -d /dev/ttyS5 -b 921600
 
 # uxrce dds client
-uxrce_dds_client start -t serial -d /dev/ttyACM0
+if param compare -s UXRCE_DDS_SER_EN 1
+then
+   uxrce_dds_client start -t serial -d /dev/ttyACM0
+fi
+
+

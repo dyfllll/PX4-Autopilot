@@ -75,6 +75,7 @@
 #include <px4_platform/board_determine_hw_info.h>
 #include <px4_platform/board_dma_alloc.h>
 
+
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
@@ -105,7 +106,7 @@ __EXPORT void board_peripheral_reset(int ms)
 {
 	/* set the peripheral rails off */
 
-	VDD_5V_PERIPH_EN(false);
+	// VDD_5V_PERIPH_EN(false);
 	board_control_spi_sensors_power(false, 0xffff);
 
 	/* wait for the peripheral rail to reach GND */
@@ -116,7 +117,7 @@ __EXPORT void board_peripheral_reset(int ms)
 
 	/* switch the peripheral rail back on */
 	board_control_spi_sensors_power(true, 0xffff);
-	VDD_5V_PERIPH_EN(true);
+	// VDD_5V_PERIPH_EN(true);
 
 }
 
@@ -203,11 +204,12 @@ stm32_boardinitialize(void)
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
+	syslog(LOG_INFO, "[boot] Board app initialize: 0x%08lx\r\n", (unsigned long)arg);
 #if !defined(BOOTLOADER)
 
-	/* Power on Interfaces */
-	VDD_5V_PERIPH_EN(true);
-	VDD_5V_HIPOWER_EN(true);
+	// /* Power on Interfaces */
+	// VDD_5V_PERIPH_EN(true);
+	// VDD_5V_HIPOWER_EN(true);
 
 	/* Need hrt running before using the ADC */
 
@@ -238,20 +240,20 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	hrt_call_every(&serial_dma_call, 1000, 1000, (hrt_callout)stm32_serial_dma_poll, NULL);
 #  endif
 
-	/* initial LED state */
-	drv_led_start();
-	led_off(LED_RED);
-	led_off(LED_BLUE);
+	// /* initial LED state */
+	// drv_led_start();
+	// led_off(LED_RED);
+	// led_off(LED_BLUE);
 
-	if (board_hardfault_init(2, true) != 0) {
-		led_on(LED_RED);
-	}
+	// if (board_hardfault_init(2, true) != 0) {
+	// 	led_on(LED_RED);
+	// }
 
 #  ifdef CONFIG_MMCSD
 	int ret = stm32_sdio_initialize();
 
 	if (ret != OK) {
-		led_on(LED_RED);
+		// led_on(LED_RED);
 	}
 
 #  endif /* CONFIG_MMCSD */

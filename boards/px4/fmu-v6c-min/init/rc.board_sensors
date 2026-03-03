@@ -1,0 +1,62 @@
+#!/bin/sh
+#
+# PX4 FMUv6C specific board sensors init
+#------------------------------------------------------------------------------
+echo "Board sensors init for PX4 FMUv6C"
+
+
+
+
+# board_adc start
+
+# if ver hwtypecmp V6C000002 V6C002002
+# then
+#        # Internal SPI BMI088 accel/gyro
+#        bmi088 -A -R 4 -s start
+#        bmi088 -G -R 4 -s start
+# else
+#        # Internal SPI bus BMI055 accel/gyro
+#        bmi055 -A -R 4 -s start
+#        bmi055 -G -R 4 -s start
+# fi
+
+# # Internal SPI bus ICM42688p
+# icm42688p -R 6 -s start
+
+# # Internal barometer on I2C4 (The same bus is also exposed externally, and therefore marked as external)
+# ms5611 -X -b 4 -a 0x77 start
+
+# # Internal compass on IMU I2C4 (The same bus is also exposed externally, and therefore marked as external)
+# ist8310 -X -b 4 -a 0xc  start
+
+# # External compass on GPS/I2C1 (the 3rd external bus): standard Holybro Pixhawk 4 or CUAV V5 GPS/compass puck (with lights, safety button, and buzzer)
+# ist8310 -X -b 1 -R 10 start
+
+# mpu6500 -s -R 0 start
+
+# 只有温度
+# icm20948_i2c_passthrough -X -b 1 -a 0x68 start
+# 只能spi模式启动
+# icm20948 -X -b 1 -a 0x68 start
+
+
+bmi088 -A -R 0 -s start
+bmi088 -G -R 0 -s  start
+mpu6500 -s -R 0 start
+
+# ROTATION_YAW_90              = 2,
+# ROTATION_YAW_270             = 6,
+# ROTATION_ROLL_180_YAW_90     = 10,
+# ROTATION_ROLL_180_YAW_270    = 14,
+# ist8310 -X -b 1 -R 2 start
+
+# bmp388 -X -b 1 -a 0x76 start
+
+ina226 -X -b 2 -a 0x40 start
+
+# vl53l0x -X -b 4 -a 0x29 start
+
+# icm20948 -s start
+
+pmw3901 start -s -b 2
+vl53l1x -X -b 4 -a 0x29 start

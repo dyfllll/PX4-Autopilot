@@ -43,6 +43,39 @@
             ]
         },
         {
+            "name": "attach to GDB Server(@PX4_BOARD@)",
+            "cwd": "${workspaceFolder}",
+            "executable": "${command:cmake.launchTargetPath}",
+            "request": "attach",
+            "type": "cortex-debug",
+            "servertype": "external",
+            "gdbPath": "/usr/bin/gdb-multiarch",
+            "device": "@DEBUG_DEVICE@",
+            "interface": "swd",
+            "preLaunchTask": "",
+            "gdbTarget": "localhost:50000",
+            "serverArgs": [],
+        },
+        {
+            "name": "openOCD (@PX4_BOARD@)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "serverpath": "/media/dy/disk/workspace/openocd/install/bin/openocd",
+            "executable": "${command:cmake.launchTargetPath}",
+            "cwd": "${workspaceFolder}",
+            "device": "@DEBUG_DEVICE@",
+            "interface": "swd",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32h7x_dual_bank.cfg"
+            ],
+            "openOCDLaunchCommands": [
+            ],
+            "gdbPath": "/usr/bin/gdb-multiarch",
+
+        },
+        {
             "name": "blackmagic (@PX4_BOARD@)",
             "gdbPath": "@CMAKE_GDB@",
             "device": "@DEBUG_DEVICE@",

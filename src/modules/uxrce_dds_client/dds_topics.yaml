@@ -74,14 +74,16 @@ publications:
   - topic: /fmu/out/vehicle_trajectory_waypoint_desired
     type: px4_msgs::msg::VehicleTrajectoryWaypoint
 
-  - topic: /fmu/out/sensor_optical_flow
-    type: px4_msgs::msg::SensorOpticalFlow
+  - topic: /fmu/out/sensor_mag
+    type: px4_msgs::msg::SensorMag
 
   - topic: /fmu/out/distance_sensor
     type: px4_msgs::msg::DistanceSensor
 
-  - topic: /fmu/out/sensor_mag
-    type: px4_msgs::msg::SensorMag
+  - topic: /fmu/out/sensor_optical_flow  #增加会导致 bmi088 -A 传感器一直reset，暂时注释掉 不知道为什么
+    type: px4_msgs::msg::SensorOpticalFlow
+
+
 
 # Create uORB::Publication
 subscriptions:
@@ -118,8 +120,8 @@ subscriptions:
   - topic: /fmu/in/obstacle_distance
     type: px4_msgs::msg::ObstacleDistance
 
-  - topic: /fmu/in/sensor_optical_flow
-    type: px4_msgs::msg::SensorOpticalFlow
+  # - topic: /fmu/in/sensor_optical_flow
+  #   type: px4_msgs::msg::SensorOpticalFlow
 
   - topic: /fmu/in/goto_setpoint
     type: px4_msgs::msg::GotoSetpoint

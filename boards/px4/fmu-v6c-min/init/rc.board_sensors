@@ -48,7 +48,7 @@ mpu6500 -s -R 0 start
 # ROTATION_YAW_270             = 6,
 # ROTATION_ROLL_180_YAW_90     = 10,
 # ROTATION_ROLL_180_YAW_270    = 14,
-# ist8310 -X -b 1 -R 2 start
+ist8310 -X -b 1 -R 2 start
 
 # bmp388 -X -b 1 -a 0x76 start
 
